@@ -1,4 +1,19 @@
-async function apiRequest(endpoint, method = 'GET', body = null) {
+// HELPER FUNCTIONS FOR LOADING SPINNER
+function showLoading(message = 'Naglo-load, pakihintay...') {
+  const spinner = document.getElementById('globalLoadingSpinner');
+  const textEl = document.getElementById('loadingText');
+  if (textEl) textEl.textContent = message;
+  if (spinner) spinner.style.display = 'flex';
+}
+
+function hideLoading() {
+  const spinner = document.getElementById('globalLoadingSpinner');
+  if (spinner) spinner.style.display = 'none';
+}
+
+async function apiRequest(endpoint, method = 'GET', body = null, customLoadingMsg = null) {
+  showLoading(customLoadingMsg || 'Naglo-load, pakihintay...');
+  
   const token = localStorage.getItem('pos_token');
   const headers = { 'Content-Type': 'application/json' };
   
@@ -15,7 +30,6 @@ async function apiRequest(endpoint, method = 'GET', body = null) {
 
     if (!response.ok) {
       if (response.status === 401 || response.status === 403) {
-        // Automatic logout kapag expired na ang JWT session
         localStorage.removeItem('pos_token');
         localStorage.removeItem('pos_user');
         document.getElementById('loginScreen').style.display = 'flex';
@@ -27,5 +41,7 @@ async function apiRequest(endpoint, method = 'GET', body = null) {
   } catch (err) {
     console.error('API Error:', err.message);
     throw err;
+  } finally {
+    hideLoading(); // AUTOMATICALLY HIDES SPINNER WHEN REQUEST FINISHES
   }
 }
