@@ -16,8 +16,6 @@ const monthNames = [
 
 let html5QrCode = null;
 let isCameraActive = false;
-let lastScannedCode = "";
-let lastScanTime = 0;
 
 /* UTILITY FUNCTIONS */
 function toUpper(val) {
@@ -32,18 +30,19 @@ function getTodayString() {
   return `${year}-${month}-${day}`;
 }
 
-// AUTO INIT ON LOAD
+// INITIALIZATION ON LOAD
 window.addEventListener('DOMContentLoaded', () => {
   if (loggedInUser) {
     document.getElementById('loginScreen').style.display = 'none';
-    document.getElementById('activeUserFullName').textContent = loggedInUser.fullName;
+    document.getElementById('activeUserFullName').textContent = loggedInUser.fullName || loggedInUser.username;
     document.getElementById('activeUserRoleBadge').textContent = loggedInUser.role;
     applyUserRoleRestrictions();
     switchView('view-dashboard', document.querySelectorAll('.nav-item')[0]);
   } else {
     document.getElementById('loginScreen').style.display = 'flex';
   }
-  document.getElementById('salesDateFilter').value = getTodayString();
+  const dateFilter = document.getElementById('salesDateFilter');
+  if (dateFilter) dateFilter.value = getTodayString();
 });
 
 /* AUTHENTICATION LOGIC */
@@ -69,8 +68,9 @@ async function handleLoginSubmit(event) {
     applyUserRoleRestrictions();
     switchView('view-dashboard', document.querySelectorAll('.nav-item')[0]);
   } catch (err) {
-    document.getElementById('loginErrorMsg').textContent = `❌ ${err.message}`;
-    document.getElementById('loginErrorMsg').style.display = 'block';
+    const errBox = document.getElementById('loginErrorMsg');
+    errBox.textContent = `❌ ${err.message}`;
+    errBox.style.display = 'block';
   }
 }
 
@@ -107,7 +107,8 @@ function switchView(viewId, element) {
   document.querySelectorAll('.view-content').forEach(view => view.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
 
-  document.getElementById(viewId).classList.add('active');
+  const targetView = document.getElementById(viewId);
+  if (targetView) targetView.classList.add('active');
   if (element) element.classList.add('active');
 
   const titles = {
@@ -119,14 +120,16 @@ function switchView(viewId, element) {
     'view-inventory': 'Central Inventory',
     'view-users': 'User Management & Accounts'
   };
-  document.getElementById('pageTitle').textContent = titles[viewId] || 'Dashboard';
+  const titleEl = document.getElementById('pageTitle');
+  if (titleEl) titleEl.textContent = titles[viewId] || 'Dashboard';
+
+  stopCameraScanner();
 
   if (viewId === 'view-dashboard') renderDashboard();
   if (viewId === 'view-sale') { 
     renderSaleGrid(); 
-    document.getElementById('saleSearchInput').focus(); 
-  } else {
-    stopCameraScanner();
+    const searchInput = document.getElementById('saleSearchInput');
+    if (searchInput) searchInput.focus(); 
   }
   if (viewId === 'view-sales-log') renderSalesLog();
   if (viewId === 'view-reports') renderReportsModule();
@@ -138,16 +141,16 @@ function switchView(viewId, element) {
 /* DASHBOARD MODULE */
 async function renderDashboard() {
   try {
-    const variants = await apiRequest('/variants');
-    const masters = await apiRequest('/masters');
+    const variants = await apiRequest('/variants') || [];
+    const masters = await apiRequest('/masters') || [];
     const todayStr = getTodayString();
-    const reports = await apiRequest(`/reports/summary?date=${todayStr}`);
+    const reports = await apiRequest(`/reports/summary?date=${todayStr}`) || [];
 
     const todayReport = reports[0] || { gross_sales: 0, net_profit: 0, total_txns: 0 };
 
-    document.getElementById('dashTodaySales').textContent = `₱${parseFloat(todayReport.gross_sales).toLocaleString('en-US', {minimumFractionDigits: 2})}`;
-    document.getElementById('dashTodayProfit').textContent = `₱${parseFloat(todayReport.net_profit).toLocaleString('en-US', {minimumFractionDigits: 2})}`;
-    document.getElementById('dashTodayTxns').textContent = `${todayReport.total_txns} Transaction(s) Today`;
+    document.getElementById('dashTodaySales').textContent = `₱${parseFloat(todayReport.gross_sales || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+    document.getElementById('dashTodayProfit').textContent = `₱${parseFloat(todayReport.net_profit || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+    document.getElementById('dashTodayTxns').textContent = `${todayReport.total_txns || 0} Transaction(s) Today`;
 
     const outOfStockList = variants.filter(b => parseInt(b.stock) === 0);
     const lowStockList = variants.filter(b => parseInt(b.stock) > 0 && parseInt(b.stock) <= parseInt(b.low_stock_limit));
@@ -156,31 +159,33 @@ async function renderDashboard() {
     document.getElementById('dashLowStockCount').textContent = `${totalAlerts} Alert(s)`;
     document.getElementById('dashOutStockSub').textContent = `${outOfStockList.length} Out of Stock | ${lowStockList.length} Low Stock`;
 
-    const assetValuation = variants.reduce((sum, b) => sum + (parseFloat(b.cost) * parseInt(b.stock)), 0);
+    const assetValuation = variants.reduce((sum, b) => sum + (parseFloat(b.cost || 0) * parseInt(b.stock || 0)), 0);
     document.getElementById('dashAssetValuation').textContent = `₱${assetValuation.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
     document.getElementById('dashTotalItemsCount').textContent = `${masters.length} Masters | ${variants.length} Variants`;
 
     // CRITICAL REORDER TABLE
     const reorderBody = document.getElementById('dashReorderTableBody');
-    reorderBody.innerHTML = '';
-    const criticalVariants = [...outOfStockList, ...lowStockList].slice(0, 5);
+    if (reorderBody) {
+      reorderBody.innerHTML = '';
+      const criticalVariants = [...outOfStockList, ...lowStockList].slice(0, 5);
 
-    if (criticalVariants.length === 0) {
-      reorderBody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#16a34a; padding:16px;">✅ All items have healthy stock levels!</td></tr>`;
-    } else {
-      criticalVariants.forEach(b => {
-        const badgeClass = parseInt(b.stock) === 0 ? 'stock-red' : 'stock-orange';
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td><strong>${b.code}</strong></td>
-          <td>${b.part_name} (${b.oem})</td>
-          <td style="text-align:center;"><span class="stock-badge ${badgeClass}">${b.stock}</span></td>
-          <td style="text-align:center;">
-            <button class="btn btn-primary" style="font-size:10px; padding:2px 6px;" onclick="openRestockModal('${b.code}')">➕ Restock</button>
-          </td>
-        `;
-        reorderBody.appendChild(tr);
-      });
+      if (criticalVariants.length === 0) {
+        reorderBody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#16a34a; padding:16px;">✅ All items have healthy stock levels!</td></tr>`;
+      } else {
+        criticalVariants.forEach(b => {
+          const badgeClass = parseInt(b.stock) === 0 ? 'stock-red' : 'stock-orange';
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><strong>${b.code}</strong></td>
+            <td>${b.part_name || 'ITEM'} (${b.oem || ''})</td>
+            <td style="text-align:center;"><span class="stock-badge ${badgeClass}">${b.stock}</span></td>
+            <td style="text-align:center;">
+              <button class="btn btn-primary" style="font-size:10px; padding:2px 6px;" onclick="openRestockModal('${b.code}')">➕ Restock</button>
+            </td>
+          `;
+          reorderBody.appendChild(tr);
+        });
+      }
     }
 
     renderDashboardCharts();
@@ -190,64 +195,143 @@ async function renderDashboard() {
 }
 
 function renderDashboardCharts() {
-  const ctxSales = document.getElementById('salesTrendChart').getContext('2d');
-  if (salesChartInstance) salesChartInstance.destroy();
+  const salesCanvas = document.getElementById('salesTrendChart');
+  if (salesCanvas) {
+    const ctxSales = salesCanvas.getContext('2d');
+    if (salesChartInstance) salesChartInstance.destroy();
 
-  salesChartInstance = new Chart(ctxSales, {
-    type: 'line',
-    data: {
-      labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-      datasets: [{
-        label: 'Daily Sales (₱)',
-        data: [1200, 1900, 3000, 5200, 2300, 4100, 3400],
-        borderColor: '#2563eb',
-        backgroundColor: 'rgba(37, 99, 235, 0.08)',
-        fill: true,
-        tension: 0.3,
-        borderWidth: 2
-      }]
-    },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
-  });
+    salesChartInstance = new Chart(ctxSales, {
+      type: 'line',
+      data: {
+        labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+        datasets: [{
+          label: 'Daily Sales (₱)',
+          data: [0, 0, 0, 0, 0, 0, 0],
+          borderColor: '#2563eb',
+          backgroundColor: 'rgba(37, 99, 235, 0.08)',
+          fill: true,
+          tension: 0.3,
+          borderWidth: 2
+        }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+    });
+  }
 
-  const ctxBrand = document.getElementById('brandShareChart').getContext('2d');
-  if (brandChartInstance) brandChartInstance.destroy();
+  const brandCanvas = document.getElementById('brandShareChart');
+  if (brandCanvas) {
+    const ctxBrand = brandCanvas.getContext('2d');
+    if (brandChartInstance) brandChartInstance.destroy();
 
-  brandChartInstance = new Chart(ctxBrand, {
-    type: 'doughnut',
-    data: {
-      labels: ['Toyota Genuine', 'Akebono', 'Vic Filters', 'Bosch'],
-      datasets: [{
-        data: [45, 25, 20, 10],
-        backgroundColor: ['#2563eb', '#16a34a', '#ea580c', '#64748b']
-      }]
-    },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+    brandChartInstance = new Chart(ctxBrand, {
+      type: 'doughnut',
+      data: {
+        labels: ['No Sales Data Yet'],
+        datasets: [{
+          data: [100],
+          backgroundColor: ['#cbd5e1']
+        }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+    });
+  }
+}
+
+/* CAMERA SCANNER LOGIC */
+function toggleCameraScanner() {
+  if (isCameraActive) {
+    stopCameraScanner();
+  } else {
+    startCameraScanner();
+  }
+}
+
+function startCameraScanner() {
+  const wrapper = document.getElementById('interactive-camera-wrapper');
+  const btn = document.getElementById('camToggleBtn');
+
+  if (wrapper) wrapper.style.display = 'block';
+  if (typeof Html5Qrcode === 'undefined') {
+    alert('Barcode scanner library not loaded.');
+    return;
+  }
+  html5QrCode = new Html5Qrcode("reader");
+
+  const config = { fps: 10, qrbox: { width: 250, height: 150 } };
+
+  html5QrCode.start(
+    { facingMode: "environment" },
+    config,
+    (decodedText) => {
+      handleCameraScanSuccess(decodedText);
+    }
+  ).then(() => {
+    isCameraActive = true;
+    if (btn) {
+      btn.textContent = '🛑 Stop Camera Scanner';
+      btn.className = 'btn btn-danger';
+    }
+  }).catch(err => {
+    alert("Hindi mabuksan ang Camera: Siguraduhing pinayagan ang camera permission.");
+    if (wrapper) wrapper.style.display = 'none';
   });
 }
 
-/* POS SALE & CATALOG MODULE */
+function stopCameraScanner() {
+  if (html5QrCode && isCameraActive) {
+    html5QrCode.stop().then(() => {
+      isCameraActive = false;
+      const wrapper = document.getElementById('interactive-camera-wrapper');
+      if (wrapper) wrapper.style.display = 'none';
+      const btn = document.getElementById('camToggleBtn');
+      if (btn) {
+        btn.textContent = '📷 Open Live Camera Scanner';
+        btn.className = 'btn btn-primary';
+      }
+    }).catch(err => console.error(err));
+  }
+}
+
+async function handleCameraScanSuccess(scannedCode) {
+  const query = scannedCode.trim().toUpperCase();
+  try {
+    const variants = await apiRequest('/variants') || [];
+    const match = variants.find(b => b.barcode.toUpperCase() === query || b.code.toUpperCase() === query);
+    if (match) {
+      addToCart(match);
+    } else {
+      alert(`Hindi mahanap ang item para sa Barcode: ${scannedCode}`);
+    }
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+/* POS CHECKOUT MODULE */
 async function renderSaleGrid() {
   const grid = document.getElementById('saleCatalogGrid');
-  const search = document.getElementById('saleSearchInput').value.trim().toUpperCase();
+  if (!grid) return;
+  const searchInput = document.getElementById('saleSearchInput');
+  const search = searchInput ? searchInput.value.trim().toUpperCase() : '';
 
   try {
-    const variants = await apiRequest('/variants');
+    const variants = await apiRequest('/variants') || [];
     grid.innerHTML = '';
 
     const filtered = variants.filter(b => 
       b.code.toUpperCase().includes(search) ||
       b.barcode.toUpperCase().includes(search) ||
-      b.part_name.toUpperCase().includes(search) ||
-      b.oem.toUpperCase().includes(search) ||
-      b.brand.toUpperCase().includes(search)
+      (b.part_name && b.part_name.toUpperCase().includes(search)) ||
+      (b.oem && b.oem.toUpperCase().includes(search)) ||
+      (b.brand && b.brand.toUpperCase().includes(search))
     );
 
     if (filtered.length === 0) {
       grid.innerHTML = `
         <div class="empty-stock-banner" style="border-color:#cbd5e1; background:#ffffff;">
           <div class="empty-stock-icon" style="background-color:#f1f5f9; color:#64748b;">🔍</div>
-          <div class="empty-stock-title" style="color:#0f172a;">NO MATCHING VARIANTS FOUND</div>
+          <div class="empty-stock-title" style="color:#0f172a;">WALANG MAKITANG ITEM SA INVENTORY</div>
+          <div class="empty-stock-sub">Magdagdag muna ng Master Item at Supplier Variant para makapag-benta.</div>
         </div>`;
       return;
     }
@@ -262,8 +346,8 @@ async function renderSaleGrid() {
       card.innerHTML = `
         <div>
           <div class="card-img-placeholder">⚙️</div>
-          <div class="item-title">${batch.part_name} - ${batch.oem}</div>
-          <div class="item-oem">${batch.brand} | SUPPLIER: ${batch.supplier}</div>
+          <div class="item-title">${batch.part_name || 'ITEM'} - ${batch.oem || ''}</div>
+          <div class="item-oem">${batch.brand || ''} | SUPPLIER: ${batch.supplier}</div>
           <div class="item-subtitle">VARIANT: ${batch.code}</div>
         </div>
         <div class="card-footer">
@@ -275,6 +359,15 @@ async function renderSaleGrid() {
     });
   } catch (err) {
     grid.innerHTML = `<p style="color:red; padding:10px;">Failed to load catalog: ${err.message}</p>`;
+  }
+}
+
+function handleSaleBarcodeKey(event) {
+  if (event.key === 'Enter') {
+    const query = event.target.value.trim().toUpperCase();
+    if (!query) return;
+    event.target.value = '';
+    renderSaleGrid();
   }
 }
 
@@ -294,9 +387,9 @@ function addToCart(batch) {
   } else {
     cart.push({
       batchCode: batch.code,
-      partName: batch.part_name,
-      oem: batch.oem,
-      brand: batch.brand,
+      partName: batch.part_name || 'ITEM',
+      oem: batch.oem || '',
+      brand: batch.brand || '',
       price: parseFloat(batch.price),
       cost: parseFloat(batch.cost),
       qty: 1,
@@ -331,6 +424,7 @@ function clearCart() {
 
 function updateCartUI() {
   const tbody = document.getElementById('cartTableBody');
+  if (!tbody) return;
   tbody.innerHTML = '';
 
   let totalItems = 0;
@@ -371,10 +465,12 @@ function updateCartUI() {
 }
 
 function calculateChange() {
-  const cash = parseFloat(document.getElementById('cashTenderedInput').value) || 0;
+  const cashInput = document.getElementById('cashTenderedInput');
+  const cash = cashInput ? parseFloat(cashInput.value) || 0 : 0;
   const grandTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
   const change = cash - grandTotal;
-  document.getElementById('cartChangeAmount').textContent = `₱${change >= 0 ? change.toFixed(2) : '0.00'}`;
+  const changeEl = document.getElementById('cartChangeAmount');
+  if (changeEl) changeEl.textContent = `₱${change >= 0 ? change.toFixed(2) : '0.00'}`;
 }
 
 async function processCheckout() {
@@ -382,7 +478,8 @@ async function processCheckout() {
 
   const grandTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
   const totalCost = cart.reduce((sum, item) => sum + (item.cost * item.qty), 0);
-  const cash = parseFloat(document.getElementById('cashTenderedInput').value) || 0;
+  const cashInput = document.getElementById('cashTenderedInput');
+  const cash = cashInput ? parseFloat(cashInput.value) || 0 : 0;
 
   if (cash < grandTotal) return alert('Kulang ang ibinayad na Cash!');
 
@@ -393,22 +490,296 @@ async function processCheckout() {
     alert(`✅ Transaction Complete!\nTxn No: ${res.txnNumber}\nTotal: ₱${grandTotal.toFixed(2)}\nChange: ₱${res.change.toFixed(2)}`);
 
     clearCart();
-    document.getElementById('cashTenderedInput').value = '';
+    if (cashInput) cashInput.value = '';
     renderSaleGrid();
   } catch (err) {
     alert(`❌ Checkout Failed: ${err.message}`);
   }
 }
 
+/* SALES LOG MODULE */
+async function renderSalesLog() {
+  const dateFilter = document.getElementById('salesDateFilter');
+  const selectedDate = dateFilter ? dateFilter.value : getTodayString();
+  const tbody = document.getElementById('salesLogTableBody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  try {
+    const items = await apiRequest(`/reports/daily-items?date=${selectedDate}`) || [];
+
+    let grossSum = 0;
+    let costSum = 0;
+    let profitSum = 0;
+    let totalPcs = 0;
+
+    if (items.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#94a3b8; padding:24px;">Walang naitalang benta sa napiling petsa (${selectedDate}).</td></tr>`;
+    } else {
+      items.forEach(i => {
+        const costTotal = parseFloat(i.cost) * parseInt(i.qty);
+        const salesTotal = parseFloat(i.subtotal);
+        const profitTotal = parseFloat(i.item_profit);
+
+        grossSum += salesTotal;
+        costSum += costTotal;
+        profitSum += profitTotal;
+        totalPcs += parseInt(i.qty);
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>
+            <strong>${new Date(i.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</strong><br>
+            <small style="color:#64748b;">${i.txn_number}</small>
+          </td>
+          <td style="font-size:13px; font-weight:600;">• ${i.part_name} (${i.oem || i.variant_code})</td>
+          <td style="text-align:center; font-weight:bold;">${i.qty}</td>
+          <td style="text-align:right; color:#ea580c;">₱${costTotal.toFixed(2)}</td>
+          <td style="text-align:right; font-weight:bold; color:#2563eb;">₱${salesTotal.toFixed(2)}</td>
+          <td style="text-align:right; font-weight:bold; color:#16a34a;">₱${profitTotal.toFixed(2)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    document.getElementById('salesGrossTotal').textContent = `₱${grossSum.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+    document.getElementById('salesCostTotal').textContent = `₱${costSum.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+    document.getElementById('salesProfitTotal').textContent = `₱${profitSum.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+    document.getElementById('salesTxnCount').textContent = items.length;
+    document.getElementById('salesItemsCount').textContent = `${totalPcs} total pcs sold`;
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="6" style="color:red; text-align:center;">Failed to load sales log: ${err.message}</td></tr>`;
+  }
+}
+
+/* REPORTS MODULE & DRILL-DOWN */
+function renderReportsModule() {
+  renderBreadcrumbs();
+  document.getElementById('rptYearlySubView').style.display = activeReportLevel === 'yearly' ? 'block' : 'none';
+  document.getElementById('rptMonthlySubView').style.display = activeReportLevel === 'monthly' ? 'block' : 'none';
+  document.getElementById('rptDailySubView').style.display = activeReportLevel === 'daily' ? 'block' : 'none';
+
+  if (activeReportLevel === 'yearly') renderYearlyReport();
+  else if (activeReportLevel === 'monthly') renderMonthlyReport();
+  else if (activeReportLevel === 'daily') renderDailyReport();
+}
+
+function renderBreadcrumbs() {
+  const container = document.getElementById('reportBreadcrumbs');
+  if (!container) return;
+  let html = `<span class="${activeReportLevel === 'yearly' ? 'crumb-active' : 'crumb-item'}" onclick="goToYearlyView()">📊 Yearly (${currentSelectedYear})</span>`;
+
+  if (activeReportLevel === 'monthly' || activeReportLevel === 'daily') {
+    const mName = monthNames[parseInt(currentSelectedMonth) - 1];
+    html += ` ➔ <span class="${activeReportLevel === 'monthly' ? 'crumb-active' : 'crumb-item'}" onclick="goToMonthlyView()">📆 ${mName} ${currentSelectedYear}</span>`;
+  }
+  if (activeReportLevel === 'daily') {
+    html += ` ➔ <span class="crumb-active">📄 ${currentSelectedDate} Sales Details</span>`;
+  }
+  container.innerHTML = html;
+}
+
+function goToYearlyView() {
+  activeReportLevel = 'yearly';
+  renderReportsModule();
+}
+
+function goToMonthlyView(monthCode) {
+  if (monthCode) currentSelectedMonth = monthCode;
+  activeReportLevel = 'monthly';
+  const mSelect = document.getElementById('rptMonthSelect');
+  if (mSelect) mSelect.value = currentSelectedMonth;
+  renderReportsModule();
+}
+
+function goToDailyView(dateStr) {
+  if (dateStr) currentSelectedDate = dateStr;
+  activeReportLevel = 'daily';
+  renderReportsModule();
+}
+
+function handleMonthSelectChange() {
+  const mSelect = document.getElementById('rptMonthSelect');
+  if (mSelect) currentSelectedMonth = mSelect.value;
+  renderMonthlyReport();
+}
+
+async function renderYearlyReport() {
+  const yrSelect = document.getElementById('rptYearSelect');
+  if (yrSelect) currentSelectedYear = yrSelect.value;
+  renderBreadcrumbs();
+
+  const tbody = document.getElementById('yearlyTableBody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  try {
+    const reports = await apiRequest(`/reports/summary?year=${currentSelectedYear}`) || [];
+
+    let yrSales = 0, yrCost = 0, yrProfit = 0;
+
+    for (let m = 1; m <= 12; m++) {
+      const monthCode = String(m).padStart(2, '0');
+      const mName = monthNames[m - 1];
+
+      const mReports = reports.filter(r => new Date(r.txn_date).getMonth() + 1 === m);
+      const mSales = mReports.reduce((sum, r) => sum + parseFloat(r.gross_sales || 0), 0);
+      const mCost = mReports.reduce((sum, r) => sum + parseFloat(r.total_cost || 0), 0);
+      const mProfit = mReports.reduce((sum, r) => sum + parseFloat(r.net_profit || 0), 0);
+      const mTxns = mReports.reduce((sum, r) => sum + parseInt(r.total_txns || 0), 0);
+
+      yrSales += mSales;
+      yrCost += mCost;
+      yrProfit += mProfit;
+
+      const tr = document.createElement('tr');
+      tr.className = 'clickable-row';
+      tr.onclick = () => goToMonthlyView(monthCode);
+      tr.innerHTML = `
+        <td><strong>${mName} ${currentSelectedYear}</strong></td>
+        <td style="text-align:center;">${mTxns}</td>
+        <td style="text-align:right; color:#ea580c;">₱${mCost.toFixed(2)}</td>
+        <td style="text-align:right; font-weight:bold; color:#2563eb;">₱${mSales.toFixed(2)}</td>
+        <td style="text-align:right; font-weight:bold; color:#16a34a;">₱${mProfit.toFixed(2)}</td>
+        <td style="text-align:center;"><button class="btn btn-secondary" style="font-size:10px; padding:3px 8px;">View Month ➔</button></td>
+      `;
+      tbody.appendChild(tr);
+    }
+
+    document.getElementById('yrGrossSales').textContent = `₱${yrSales.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+    document.getElementById('yrTotalCost').textContent = `₱${yrCost.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+    document.getElementById('yrNetProfit').textContent = `₱${yrProfit.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="6" style="color:red; text-align:center;">Failed to load yearly report: ${err.message}</td></tr>`;
+  }
+}
+
+async function renderMonthlyReport() {
+  renderBreadcrumbs();
+  const mName = monthNames[parseInt(currentSelectedMonth) - 1];
+  const header = document.getElementById('monthlyTitleHeader');
+  if (header) header.textContent = `📆 Monthly Breakdown — ${mName} ${currentSelectedYear}`;
+
+  const tbody = document.getElementById('monthlyTableBody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  try {
+    const reports = await apiRequest(`/reports/summary?year=${currentSelectedYear}&month=${currentSelectedMonth}`) || [];
+
+    let mnSales = 0, mnCost = 0, mnProfit = 0;
+    const daysInMonth = new Date(parseInt(currentSelectedYear), parseInt(currentSelectedMonth), 0).getDate();
+
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dayStr = String(day).padStart(2, '0');
+      const fullDate = `${currentSelectedYear}-${currentSelectedMonth}-${dayStr}`;
+
+      const dReport = reports.find(r => r.txn_date && r.txn_date.startsWith(fullDate)) || { gross_sales: 0, total_cost: 0, net_profit: 0, total_txns: 0 };
+
+      const dSales = parseFloat(dReport.gross_sales || 0);
+      const dCost = parseFloat(dReport.total_cost || 0);
+      const dProfit = parseFloat(dReport.net_profit || 0);
+      const dTxns = parseInt(dReport.total_txns || 0);
+
+      mnSales += dSales;
+      mnCost += dCost;
+      mnProfit += dProfit;
+
+      const tr = document.createElement('tr');
+      if (dTxns > 0) {
+        tr.className = 'clickable-row';
+        tr.onclick = () => goToDailyView(fullDate);
+      }
+
+      tr.innerHTML = `
+        <td><strong>${fullDate} (${mName.substring(0, 3)} ${day})</strong></td>
+        <td style="text-align:center;">${dTxns}</td>
+        <td style="text-align:right; color:#ea580c;">₱${dCost.toFixed(2)}</td>
+        <td style="text-align:right; font-weight:bold; color:#2563eb;">₱${dSales.toFixed(2)}</td>
+        <td style="text-align:right; font-weight:bold; color:#16a34a;">₱${dProfit.toFixed(2)}</td>
+        <td style="text-align:center;">
+          ${dTxns > 0 ? `<button class="btn btn-primary" style="font-size:10px; padding:3px 8px;">View Details ➔</button>` : `<span style="color:#94a3b8; font-size:11px;">No Sales</span>`}
+        </td>
+      `;
+      tbody.appendChild(tr);
+    }
+
+    document.getElementById('mnGrossSales').textContent = `₱${mnSales.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+    document.getElementById('mnTotalCost').textContent = `₱${mnCost.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+    document.getElementById('mnNetProfit').textContent = `₱${mnProfit.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="6" style="color:red; text-align:center;">Failed to load monthly report: ${err.message}</td></tr>`;
+  }
+}
+
+async function renderDailyReport() {
+  renderBreadcrumbs();
+  const header = document.getElementById('dailyTitleHeader');
+  if (header) header.textContent = `📄 Daily Items Sales Log — ${currentSelectedDate}`;
+  const subText = document.getElementById('dailySubDateText');
+  if (subText) subText.textContent = `Date Filtered: ${currentSelectedDate}`;
+
+  const tbody = document.getElementById('dailyTableBody');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  try {
+    const items = await apiRequest(`/reports/daily-items?date=${currentSelectedDate}`) || [];
+
+    let dySales = 0, dyCost = 0, dyProfit = 0;
+
+    if (items.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#94a3b8; padding:24px;">Walang naitalang benta para sa araw na ito (${currentSelectedDate}).</td></tr>`;
+    } else {
+      items.forEach(i => {
+        const costTotal = parseFloat(i.cost) * parseInt(i.qty);
+        const salesTotal = parseFloat(i.subtotal);
+        const profitTotal = parseFloat(i.item_profit);
+
+        dySales += salesTotal;
+        dyCost += costTotal;
+        dyProfit += profitTotal;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>
+            <strong>${new Date(i.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</strong><br>
+            <small style="color:#64748b;">${i.txn_number}</small>
+          </td>
+          <td style="font-size:13px; font-weight:600;">• ${i.part_name} (${i.oem || i.variant_code})</td>
+          <td style="text-align:center; font-weight:bold;">${i.qty}</td>
+          <td style="text-align:right; color:#ea580c;">₱${costTotal.toFixed(2)}</td>
+          <td style="text-align:right; font-weight:bold; color:#2563eb;">₱${salesTotal.toFixed(2)}</td>
+          <td style="text-align:right; font-weight:bold; color:#16a34a;">₱${profitTotal.toFixed(2)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    document.getElementById('dyGrossSales').textContent = `₱${dySales.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+    document.getElementById('dyTotalCost').textContent = `₱${dyCost.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+    document.getElementById('dyNetProfit').textContent = `₱${dyProfit.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="6" style="color:red; text-align:center;">Failed to load daily report: ${err.message}</td></tr>`;
+  }
+}
+
 /* CENTRAL INVENTORY MODULE */
 async function renderInventoryGrid() {
   const container = document.getElementById('inventoryRowContainer');
-  const search = document.getElementById('inventorySearch').value.toUpperCase();
+  if (!container) return;
+  const searchInput = document.getElementById('inventorySearch');
+  const search = searchInput ? searchInput.value.toUpperCase() : '';
   container.innerHTML = '';
 
   try {
-    const masters = await apiRequest('/masters');
-    const variants = await apiRequest('/variants');
+    const masters = await apiRequest('/masters') || [];
+    const variants = await apiRequest('/variants') || [];
+
+    if (masters.length === 0) {
+      container.innerHTML = `<p style="padding:20px; text-align:center; color:#64748b;">Walang Master Items sa database. Mag-register muna sa Master Items tab.</p>`;
+      return;
+    }
 
     masters.forEach((master, mIdx) => {
       const batches = variants.filter(b => b.master_id === master.id);
@@ -495,13 +866,19 @@ function toggleInventoryBatchPanel(panelId) {
   if (panel) panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
 }
 
+function openQuickAddMasterModal() {
+  switchView('view-master', document.querySelectorAll('.nav-item')[4]);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
 /* USER MANAGEMENT MODULE */
 async function renderUsersTable() {
   const tbody = document.getElementById('usersTableBody');
+  if (!tbody) return;
   tbody.innerHTML = '';
 
   try {
-    const users = await apiRequest('/users');
+    const users = await apiRequest('/users') || [];
     users.forEach(u => {
       const tr = document.createElement('tr');
       const rolePillClass = u.role === 'ADMIN' ? 'stock-red' : (u.role === 'MANAGER' ? 'stock-green' : 'stock-orange');
@@ -560,29 +937,33 @@ function openRestockModal(batchCode) {
 
 function closeRestockModal() {
   document.getElementById('restockModal').style.display = 'none';
-  document.getElementById('restockForm').reset();
+  const form = document.getElementById('restockForm');
+  if (form) form.reset();
 }
 
 function closeRestockOnOverlay(e) {
   if (e.target.id === 'restockModal') closeRestockModal();
 }
 
-document.getElementById('restockForm').addEventListener('submit', async function(e) {
-  e.preventDefault();
-  const code = document.getElementById('restockBatchCodeInput').value;
-  const addQty = parseInt(document.getElementById('restockAddQty').value) || 0;
+const restockForm = document.getElementById('restockForm');
+if (restockForm) {
+  restockForm.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const code = document.getElementById('restockBatchCodeInput').value;
+    const addQty = parseInt(document.getElementById('restockAddQty').value) || 0;
 
-  try {
-    await apiRequest(`/variants/${code}/restock`, 'PATCH', { addQty });
-    closeRestockModal();
-    renderDashboard();
-    renderInventoryGrid();
-    renderSaleGrid();
-    alert(`Successfully added +${addQty} stock to ${code}!`);
-  } catch (err) {
-    alert(`❌ Restock Failed: ${err.message}`);
-  }
-});
+    try {
+      await apiRequest(`/variants/${code}/restock`, 'PATCH', { addQty });
+      closeRestockModal();
+      renderDashboard();
+      renderInventoryGrid();
+      renderSaleGrid();
+      alert(`Successfully added +${addQty} stock to ${code}!`);
+    } catch (err) {
+      alert(`❌ Restock Failed: ${err.message}`);
+    }
+  });
+}
 
 function openQuickCodingModal(masterId) {
   document.getElementById('quickMasterIdInput').value = masterId;
@@ -592,61 +973,77 @@ function openQuickCodingModal(masterId) {
 
 function closeQuickCodingModal() {
   document.getElementById('quickCodingModal').style.display = 'none';
-  document.getElementById('quickCodingForm').reset();
+  const form = document.getElementById('quickCodingForm');
+  if (form) form.reset();
 }
 
 function closeQuickCodingOnOverlay(e) {
   if (e.target.id === 'quickCodingModal') closeQuickCodingModal();
 }
 
-document.getElementById('quickCodingForm').addEventListener('submit', async function(e) {
-  e.preventDefault();
-  const masterId = parseInt(document.getElementById('quickMasterIdInput').value);
-  const supplier = document.getElementById('qSupplierInput').value;
-  const cost = parseFloat(document.getElementById('qCostInput').value);
-  const price = parseFloat(document.getElementById('qSellingInput').value);
-  const stock = parseInt(document.getElementById('qStockInput').value);
-  const lowStockLimit = parseInt(document.getElementById('qLowStockInput').value) || 2;
+const quickCodingForm = document.getElementById('quickCodingForm');
+if (quickCodingForm) {
+  quickCodingForm.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const masterId = parseInt(document.getElementById('quickMasterIdInput').value);
+    const supplier = document.getElementById('qSupplierInput').value;
+    const cost = parseFloat(document.getElementById('qCostInput').value);
+    const price = parseFloat(document.getElementById('qSellingInput').value);
+    const stock = parseInt(document.getElementById('qStockInput').value);
+    const lowStockLimit = parseInt(document.getElementById('qLowStockInput').value) || 2;
 
-  try {
-    await apiRequest('/variants', 'POST', { masterId, supplier, cost, price, stock, lowStockLimit });
-    closeQuickCodingModal();
-    renderInventoryGrid();
-    renderSaleGrid();
-    alert('Bagong Supplier Variant ay matagumpay na naisave!');
-  } catch (err) {
-    alert(`❌ Failed to create variant: ${err.message}`);
-  }
-});
+    try {
+      await apiRequest('/variants', 'POST', { masterId, supplier, cost, price, stock, lowStockLimit });
+      closeQuickCodingModal();
+      renderInventoryGrid();
+      renderSaleGrid();
+      alert('Bagong Supplier Variant ay matagumpay na naisave!');
+    } catch (err) {
+      alert(`❌ Failed to create variant: ${err.message}`);
+    }
+  });
+}
 
-/* MASTER ITEM FORM SUBMISSION */
-document.getElementById('masterForm').addEventListener('submit', async function(e) {
-  e.preventDefault();
-  const oem = document.getElementById('oemInput').value;
-  const brand = document.getElementById('brandInput').value;
-  const partName = document.getElementById('partNameInput').value;
-  const make = document.getElementById('vehicleMakeInput').value;
-  const model = document.getElementById('vehicleModelInput').value;
-  const year = document.getElementById('yearInput').value;
-  const engine = document.getElementById('engineInput').value;
+/* MASTER ITEM FORM SUBMISSION & GALLERY */
+function handleImageUpload(e) {}
+function toggleBoxPackagingFields() {
   const unitType = document.getElementById('unitInput').value;
+  const boxFields = document.getElementById('boxFields');
+  if (boxFields) boxFields.style.display = unitType === 'box' ? 'block' : 'none';
+}
 
-  try {
-    await apiRequest('/masters', 'POST', { oem, brand, partName, make, model, year, engine, unitType });
-    alert('Master Item successfully registered!');
-    this.reset();
-    renderStep1Grid();
-  } catch (err) {
-    alert(`❌ Save Failed: ${err.message}`);
-  }
-});
+const masterForm = document.getElementById('masterForm');
+if (masterForm) {
+  masterForm.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const oem = document.getElementById('oemInput').value;
+    const brand = document.getElementById('brandInput').value;
+    const partName = document.getElementById('partNameInput').value;
+    const make = document.getElementById('vehicleMakeInput').value;
+    const model = document.getElementById('vehicleModelInput').value;
+    const year = document.getElementById('yearInput').value;
+    const engine = document.getElementById('engineInput').value;
+    const unitType = document.getElementById('unitInput').value;
+
+    try {
+      await apiRequest('/masters', 'POST', { oem, brand, partName, make, model, year, engine, unitType });
+      alert('Master Item successfully registered!');
+      this.reset();
+      renderStep1Grid();
+    } catch (err) {
+      alert(`❌ Save Failed: ${err.message}`);
+    }
+  });
+}
 
 async function renderStep1Grid() {
   const grid = document.getElementById('step1Grid');
-  const search = document.getElementById('step1Search').value.toUpperCase();
+  if (!grid) return;
+  const searchInput = document.getElementById('step1Search');
+  const search = searchInput ? searchInput.value.toUpperCase() : '';
   
   try {
-    const masters = await apiRequest('/masters');
+    const masters = await apiRequest('/masters') || [];
     grid.innerHTML = '';
 
     const filtered = masters.filter(item => 
@@ -654,6 +1051,11 @@ async function renderStep1Grid() {
       item.part_name.toUpperCase().includes(search) ||
       item.brand.toUpperCase().includes(search)
     );
+
+    if (filtered.length === 0) {
+      grid.innerHTML = `<p style="padding:20px; color:#64748b;">Walang registered master items.</p>`;
+      return;
+    }
 
     filtered.forEach(item => {
       const card = document.createElement('div');
@@ -671,3 +1073,21 @@ async function renderStep1Grid() {
     grid.innerHTML = `<p style="color:red; padding:10px;">Failed to load catalog: ${err.message}</p>`;
   }
 }
+
+/* ITEM DETAIL & LIGHTBOX MODAL CLOSERS */
+function closeModal() {
+  const itemModal = document.getElementById('itemModal');
+  if (itemModal) itemModal.style.display = 'none';
+}
+function closeModalOnOverlay(e) {
+  if (e.target.id === 'itemModal') closeModal();
+}
+function closeLightbox() {
+  const lightboxOverlay = document.getElementById('lightboxOverlay');
+  if (lightboxOverlay) lightboxOverlay.style.display = 'none';
+}
+function closeLightboxOnOverlay(e) {
+  if (e.target.id === 'lightboxOverlay') closeLightbox();
+}
+function prevLightboxImage() {}
+function nextLightboxImage() {}
