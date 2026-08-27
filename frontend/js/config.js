@@ -3,8 +3,4 @@ const CONFIG = {
   API_BASE_URL: window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? 'http://localhost:5000/api'
     : 'https://auto-parts-pos-9pv5.onrender.com/api' // Papalitan ito pagkatapos mai-deploy ang backend sa Render
-<<<<<<< HEAD
 };
-=======
-};
->>>>>>> 873f7dea4c9d13c3d4ef1453f20ad5d1c875b1e8
