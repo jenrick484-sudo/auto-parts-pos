@@ -3,21 +3,733 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Auto Parts POS - Multi-Variant System</title>
+  <title>Auto Parts POS - Per-Item Unique Variant System</title>
   
-  <!-- CSS LINK -->
+  <!-- CSS STYLESHEET -->
   <link rel="stylesheet" href="css/style.css">
 
-  <!-- THIRD PARTY CDNs -->
+  <!-- THIRD-PARTY CDNs -->
   <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
   <script src="https://unpkg.com/html5-qrcode"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 
-  <!-- LOGIN & APP MODULES HERE (SAME BODY MARKUP AS BEFORE) -->
+  <!-- FULLSCREEN LOGIN OVERLAY -->
+  <div id="loginScreen" class="login-overlay">
+    <div class="login-card">
+      <div class="login-logo-icon">🚗</div>
+      <div class="login-title">Auto Parts POS</div>
+      <div class="login-sub">Inventory & Point of Sale Management System</div>
 
-  <!-- SCRIPT LOADING ORDER -->
+      <div id="loginErrorMsg" class="login-error-msg">❌ Mali ang Username o Password!</div>
+
+      <form id="loginForm" onsubmit="handleLoginSubmit(event)">
+        <div class="form-group">
+          <label>Username</label>
+          <input type="text" id="loginUsernameInput" placeholder="ENTER USERNAME" required autofocus autocomplete="off">
+        </div>
+
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="loginPasswordInput" placeholder="••••••••" required>
+        </div>
+
+        <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center; padding:12px; font-size:15px; margin-top:8px;">
+          🔑 Log In to System
+        </button>
+      </form>
+
+      <div style="font-size:11px; color:#94a3b8; margin-top:20px;">
+        Default Admin: <strong>ADMIN</strong> / <strong>admin123</strong>
+      </div>
+    </div>
+  </div>
+
+  <!-- LEFT SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      Auto Parts POS
+      <span>Inventory System</span>
+    </div>
+    <ul class="sidebar-menu">
+      <li class="nav-item active" onclick="switchView('view-dashboard', this)">
+        📊 Dashboard
+      </li>
+      <li class="nav-item" onclick="switchView('view-sale', this)">
+        🛒 Sale / Checkout
+      </li>
+      <li class="nav-item" onclick="switchView('view-sales-log', this)">
+        🧾 Sales
+      </li>
+      <li class="nav-item" onclick="switchView('view-reports', this)">
+        📈 Report
+      </li>
+      <li class="nav-item" onclick="switchView('view-master', this)">
+        📦 Master Items
+      </li>
+      <li class="nav-item" onclick="switchView('view-inventory', this)">
+        📊 Central Inventory
+      </li>
+      <li class="nav-item" onclick="switchView('view-users', this)">
+        👤 User Management
+      </li>
+    </ul>
+  </div>
+
+  <!-- MAIN CONTENT AREA -->
+  <div class="main-wrapper">
+    <div class="top-navbar">
+      <h2 id="pageTitle">Executive Overview Dashboard</h2>
+      
+      <div class="user-profile-badge">
+        <span id="activeUserFullName" style="font-size: 13px; font-weight:700; color: #0f172a;">---</span>
+        <span id="activeUserRoleBadge" class="role-pill">ADMIN</span>
+        <button class="btn btn-secondary" style="font-size:11px; padding:4px 10px;" onclick="handleLogout()">🚪 Logout</button>
+      </div>
+    </div>
+
+    <div class="content-area">
+
+      <!-- VIEW -1: DASHBOARD MODULE -->
+      <div id="view-dashboard" class="view-content active">
+        <div class="dashboard-kpi-grid">
+          <div class="kpi-card green">
+            <div class="kpi-title">Today's Gross Sales</div>
+            <div class="kpi-value text-green" id="dashTodaySales">₱0.00</div>
+            <div class="kpi-subtext" id="dashTodayTxns">0 Transactions Completed</div>
+          </div>
+
+          <div class="kpi-card green">
+            <div class="kpi-title">Today's Net Profit</div>
+            <div class="kpi-value text-green" id="dashTodayProfit">₱0.00</div>
+            <div class="kpi-subtext">Malinis na tubo ngayong araw</div>
+          </div>
+
+          <div class="kpi-card red">
+            <div class="kpi-title">Stock Alert Warnings</div>
+            <div class="kpi-value text-orange" id="dashLowStockCount">0 Items</div>
+            <div class="kpi-subtext" id="dashOutStockSub">0 Out of Stock | 0 Low Stock</div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-title">Total Inventory Valuation</div>
+            <div class="kpi-value text-blue" id="dashAssetValuation">₱0.00</div>
+            <div class="kpi-subtext" id="dashTotalItemsCount">0 Items Registered</div>
+          </div>
+        </div>
+
+        <div style="font-size:14px; font-weight:700; color:#0f172a; margin-bottom:10px;">
+          ⚡ Operations Launchpad & Quick Actions
+        </div>
+        <div class="launchpad-grid">
+          <div class="launch-btn" onclick="switchView('view-sale', document.querySelectorAll('.nav-item')[1])">
+            <span class="launch-icon">🛒</span>
+            <span class="launch-label">New POS Sale</span>
+            <span class="launch-desc">Open cashier checkout screen</span>
+          </div>
+
+          <div class="launch-btn" onclick="switchView('view-sale', document.querySelectorAll('.nav-item')[1]); startCameraScanner();">
+            <span class="launch-icon">📷</span>
+            <span class="launch-label">Live Camera Scanner</span>
+            <span class="launch-desc">Scan barcode using webcam</span>
+          </div>
+
+          <div class="launch-btn" onclick="openQuickAddMasterModal()">
+            <span class="launch-icon">📦</span>
+            <span class="launch-label">Register Master Item</span>
+            <span class="launch-desc">Add new OEM part catalog</span>
+          </div>
+
+          <div class="launch-btn" onclick="switchView('view-inventory', document.querySelectorAll('.nav-item')[5])">
+            <span class="launch-icon">📊</span>
+            <span class="launch-label">Central Inventory</span>
+            <span class="launch-desc">Manage stock & supplier variants</span>
+          </div>
+        </div>
+
+        <div class="charts-two-col">
+          <div class="card" style="margin-bottom:0;">
+            <div class="card-title-bar">
+              <div class="card-title">📈 Weekly Sales & Revenue Trend</div>
+            </div>
+            <div class="chart-container-box">
+              <canvas id="salesTrendChart"></canvas>
+            </div>
+          </div>
+
+          <div class="card" style="margin-bottom:0;">
+            <div class="card-title-bar">
+              <div class="card-title">⚙️ Top Selling Brands Share</div>
+            </div>
+            <div class="chart-container-box">
+              <canvas id="brandShareChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="charts-two-col">
+          <div class="card" style="margin-bottom:0;">
+            <div class="card-title-bar">
+              <div class="card-title" style="color:#ef4444;">⚠️ Critical Reorder List (Low / Out of Stock)</div>
+              <button class="btn btn-secondary" style="font-size:11px; padding:4px 8px;" onclick="switchView('view-inventory', document.querySelectorAll('.nav-item')[5])">View All</button>
+            </div>
+            <table class="report-table">
+              <thead>
+                <tr>
+                  <th>Variant Code</th>
+                  <th>Item / OEM</th>
+                  <th style="text-align:center;">Stock</th>
+                  <th style="text-align:center;">Action</th>
+                </tr>
+              </thead>
+              <tbody id="dashReorderTableBody"></tbody>
+            </table>
+          </div>
+
+          <div class="card" style="margin-bottom:0;">
+            <div class="card-title-bar">
+              <div class="card-title">🧾 Recent Checkout Activity</div>
+              <button class="btn btn-secondary" style="font-size:11px; padding:4px 8px;" onclick="switchView('view-sales-log', document.querySelectorAll('.nav-item')[2])">Full Log</button>
+            </div>
+            <table class="report-table">
+              <thead>
+                <tr>
+                  <th>Time / Txn</th>
+                  <th style="text-align:right;">Amount</th>
+                </tr>
+              </thead>
+              <tbody id="dashRecentSalesBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW 0: SALE / CHECKOUT MODULE -->
+      <div id="view-sale" class="view-content">
+        <div class="pos-container">
+          <div class="pos-catalog-section">
+            <div class="card">
+              <div class="card-title-bar">
+                <div class="card-title">🔍 Scan Barcode or Search Item / Variant</div>
+                <button type="button" id="camToggleBtn" class="btn btn-primary" onclick="toggleCameraScanner()">
+                  📷 Open Live Camera Scanner
+                </button>
+              </div>
+
+              <div id="interactive-camera-wrapper">
+                <div id="reader"></div>
+                <p style="color:#cbd5e1; font-size:12px; margin-top:8px;">Itapat ang barcode sa harap ng camera...</p>
+              </div>
+
+              <div class="search-container">
+                <span class="search-icon">🔍</span>
+                <input type="text" id="saleSearchInput" class="search-input" placeholder="SCAN BARCODE OR SEARCH ITEM / OEM / BRAND / VARIANT..." onkeydown="handleSaleBarcodeKey(event)" oninput="renderSaleGrid()" autofocus>
+              </div>
+
+              <div class="catalog-grid" id="saleCatalogGrid"></div>
+            </div>
+          </div>
+
+          <div class="pos-cart-section">
+            <div class="card-title-bar">
+              <div class="card-title">🛒 Current Order Cart</div>
+              <button class="btn btn-secondary" style="font-size:11px; padding:4px 8px;" onclick="clearCart()">Clear All</button>
+            </div>
+
+            <table class="cart-table">
+              <thead>
+                <tr>
+                  <th>Item / Variant</th>
+                  <th style="text-align:center;">Qty</th>
+                  <th style="text-align:right;">Price</th>
+                  <th style="text-align:right;">Total</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="cartTableBody"></tbody>
+            </table>
+
+            <div class="cart-summary">
+              <div class="cart-summary-row">
+                <span>Total Items:</span>
+                <span id="cartTotalItems">0</span>
+              </div>
+              <div class="cart-summary-row total">
+                <span>Grand Total:</span>
+                <span id="cartGrandTotal">₱0.00</span>
+              </div>
+
+              <div style="margin-top: 16px; border-top: 1px solid #e2e8f0; padding-top: 12px;">
+                <div class="form-group">
+                  <label>Cash Tendered (₱)</label>
+                  <input type="number" id="cashTenderedInput" placeholder="0.00" oninput="calculateChange()">
+                </div>
+                <div class="cart-summary-row" style="color:#16a34a;">
+                  <span>Change:</span>
+                  <span id="cartChangeAmount">₱0.00</span>
+                </div>
+                <button type="button" class="btn btn-success" style="width:100%; justify-content:center; padding:12px; margin-top:10px; font-size:15px;" onclick="processCheckout()">
+                  ✅ Complete Checkout & Print Receipt
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW 1: SALES MODULE -->
+      <div id="view-sales-log" class="view-content">
+        <div class="card">
+          <div class="card-title-bar">
+            <div class="card-title">🧾 Daily Sales & Receipts Log</div>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <label style="margin:0; font-size:12px;">Select Date:</label>
+              <input type="date" id="salesDateFilter" style="width:auto; padding:6px 12px;" onchange="renderSalesLog()">
+            </div>
+          </div>
+
+          <div class="report-summary-grid">
+            <div class="report-card">
+              <div class="report-card-title">💰 Total Gross Sales</div>
+              <div class="report-card-value text-blue" id="salesGrossTotal">₱0.00</div>
+              <div class="report-card-sub">Kabuuan ng Naitabong Benta</div>
+            </div>
+
+            <div class="report-card">
+              <div class="report-card-title">📦 Total Investment (Cost)</div>
+              <div class="report-card-value text-orange" id="salesCostTotal">₱0.00</div>
+              <div class="report-card-sub">Puhunan sa mga Nabentang Piyesa</div>
+            </div>
+
+            <div class="report-card">
+              <div class="report-card-title">📈 Net Profit (Tubo)</div>
+              <div class="report-card-value text-green" id="salesProfitTotal">₱0.00</div>
+              <div class="report-card-sub">Malinis na Kita (Sales - Cost)</div>
+            </div>
+
+            <div class="report-card">
+              <div class="report-card-title">🛒 Total Transactions</div>
+              <div class="report-card-value" id="salesTxnCount">0</div>
+              <div class="report-card-sub" id="salesItemsCount">0 total pcs sold</div>
+            </div>
+          </div>
+
+          <div style="font-size:14px; font-weight:700; color:#0f172a; margin-bottom:12px;">
+            📄 Transactions Breakdown (Itemized per Row)
+          </div>
+          
+          <table class="report-table">
+            <thead>
+              <tr>
+                <th>Time / Txn ID</th>
+                <th>Item Description (Part Name & OEM)</th>
+                <th style="text-align:center;">Qty</th>
+                <th style="text-align:right;">Investment (Cost)</th>
+                <th style="text-align:right;">Gross Sales</th>
+                <th style="text-align:right;">Net Profit</th>
+              </tr>
+            </thead>
+            <tbody id="salesLogTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- VIEW 2: REPORT MODULE -->
+      <div id="view-reports" class="view-content">
+        <div class="report-breadcrumb" id="reportBreadcrumbs"></div>
+
+        <div id="rptYearlySubView" class="card">
+          <div class="card-title-bar">
+            <div class="card-title">📅 Yearly Performance Summary</div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <label style="margin:0; font-size:12px; font-weight:700;">Select Year:</label>
+              <select id="rptYearSelect" style="width:auto; padding:6px 12px;" onchange="renderYearlyReport()">
+                <option value="2026">2026</option>
+                <option value="2025">2025</option>
+                <option value="2024">2024</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="report-summary-grid">
+            <div class="report-card">
+              <div class="report-card-title">💰 Yearly Gross Sales</div>
+              <div class="report-card-value text-blue" id="yrGrossSales">₱0.00</div>
+            </div>
+            <div class="report-card">
+              <div class="report-card-title">📦 Yearly Investment</div>
+              <div class="report-card-value text-orange" id="yrTotalCost">₱0.00</div>
+            </div>
+            <div class="report-card">
+              <div class="report-card-title">📈 Yearly Net Profit</div>
+              <div class="report-card-value text-green" id="yrNetProfit">₱0.00</div>
+            </div>
+          </div>
+
+          <table class="report-table">
+            <thead>
+              <tr>
+                <th>Month</th>
+                <th style="text-align:center;">Transactions</th>
+                <th style="text-align:right;">Investment (Cost)</th>
+                <th style="text-align:right;">Gross Sales</th>
+                <th style="text-align:right;">Net Profit</th>
+                <th style="text-align:center;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="yearlyTableBody"></tbody>
+          </table>
+        </div>
+
+        <div id="rptMonthlySubView" class="card" style="display:none;">
+          <div class="card-title-bar">
+            <div>
+              <div class="card-title" id="monthlyTitleHeader">📆 Monthly Breakdown</div>
+            </div>
+            <button class="btn btn-secondary" style="font-size:11px; padding:6px 12px;" onclick="goToYearlyView()">⬅️ Back to Yearly</button>
+          </div>
+          <table class="report-table">
+            <thead>
+              <tr>
+                <th>Date / Day</th>
+                <th style="text-align:center;">Transactions</th>
+                <th style="text-align:right;">Investment (Cost)</th>
+                <th style="text-align:right;">Gross Sales</th>
+                <th style="text-align:right;">Net Profit</th>
+                <th style="text-align:center;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="monthlyTableBody"></tbody>
+          </table>
+        </div>
+
+        <div id="rptDailySubView" class="card" style="display:none;">
+          <div class="card-title-bar">
+            <div>
+              <div class="card-title" id="dailyTitleHeader">📄 Daily Items Sales Log</div>
+              <small style="color:#64748b;" id="dailySubDateText">Date: ---</small>
+            </div>
+            <button class="btn btn-secondary" style="font-size:11px; padding:6px 12px;" onclick="goToMonthlyView()">⬅️ Back to Monthly</button>
+          </div>
+          <table class="report-table">
+            <thead>
+              <tr>
+                <th>Time / Txn ID</th>
+                <th>Item Description (Part Name & OEM)</th>
+                <th style="text-align:center;">Qty</th>
+                <th style="text-align:right;">Investment (Cost)</th>
+                <th style="text-align:right;">Gross Sales</th>
+                <th style="text-align:right;">Net Profit</th>
+              </tr>
+            </thead>
+            <tbody id="dailyTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- VIEW 3: MASTER ITEM MODULE -->
+      <div id="view-master" class="view-content">
+        <div class="card">
+          <div class="card-title-bar">
+            <div class="card-title">Register New Master Item</div>
+          </div>
+          <form id="masterForm">
+            <div class="form-group">
+              <label>Item Pictures (Take Photo or Select from Gallery — Max 10)</label>
+              <div class="image-upload-wrapper">
+                <input type="file" id="cameraInput" accept="image/*" capture="environment" multiple style="display:none" onchange="handleImageUpload(event)">
+                <input type="file" id="galleryInput" accept="image/*" multiple style="display:none" onchange="handleImageUpload(event)">
+                <button type="button" class="btn btn-secondary" onclick="document.getElementById('cameraInput').click()">📷 Take Photo</button>
+                <button type="button" class="btn btn-secondary" onclick="document.getElementById('galleryInput').click()">🖼️ Select from Gallery</button>
+              </div>
+              <div id="imagePreview" class="image-preview-container">
+                <span style="color:#94a3b8; font-size:13px;">No images uploaded yet (0/10)</span>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>OEM / Part Number</label>
+                <input type="text" id="oemInput" placeholder="E.G. 90915-YZZD1" required>
+              </div>
+              <div class="form-group">
+                <label>Brand</label>
+                <input type="text" id="brandInput" placeholder="E.G. TOYOTA / DENSO / BOSCH" required>
+              </div>
+              <div class="form-group">
+                <label>Part Name</label>
+                <input type="text" id="partNameInput" placeholder="E.G. OIL FILTER, BRAKE PAD..." required>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>Vehicle Make</label>
+                <input type="text" id="vehicleMakeInput" placeholder="E.G. TOYOTA">
+              </div>
+              <div class="form-group">
+                <label>Vehicle Model</label>
+                <input type="text" id="vehicleModelInput" placeholder="E.G. VIOS">
+              </div>
+              <div class="form-group">
+                <label>Year / Model Year</label>
+                <input type="text" id="yearInput" placeholder="E.G. 2018–2022">
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>Engine / Engine Code</label>
+                <input type="text" id="engineInput" placeholder="E.G. 1NZ-FE">
+              </div>
+              <div class="form-group">
+                <label>Unit / Pieces per Set</label>
+                <select id="unitInput" onchange="toggleBoxPackagingFields()">
+                  <option value="pc">1 PC</option>
+                  <option value="set">SET</option>
+                  <option value="box">BOX / CARTON (FLUIDS/BULK)</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Position</label>
+                <input type="text" id="positionInput" placeholder="E.G. FRONT / REAR / LEFT">
+              </div>
+            </div>
+
+            <div id="boxFields" class="box-packaging-container">
+              <div class="form-row">
+                <div class="form-group">
+                  <label>Pcs per Box / Carton</label>
+                  <input type="number" id="pcsPerBoxInput" placeholder="E.G. 12, 4, 3">
+                </div>
+                <div class="form-group">
+                  <label>Volume / Size per Piece</label>
+                  <input type="text" id="sizePerPcInput" placeholder="E.G. 1L, 4L, 6L">
+                </div>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>Origin / Country</label>
+                <input type="text" id="originInput" placeholder="E.G. JAPAN / THAILAND">
+              </div>
+              <div class="form-group">
+                <label>Description / Additional Details</label>
+                <input type="text" id="descInput" placeholder="E.G. GENUINE BOX PACKING...">
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="padding: 12px 24px;">Save Master Item</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <div class="card-title-bar">
+            <div class="card-title">Registered Master Items Catalog</div>
+          </div>
+          <div class="search-container">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="step1Search" class="search-input" placeholder="SEARCH REGISTERED OEM, PART NAME, BRAND OR MODEL..." oninput="renderStep1Grid()">
+          </div>
+          <div class="catalog-grid" id="step1Grid"></div>
+        </div>
+      </div>
+
+      <!-- VIEW 4: CENTRAL INVENTORY -->
+      <div id="view-inventory" class="view-content">
+        <div class="card">
+          <div class="card-title-bar">
+            <div class="card-title">Central Inventory List</div>
+            <button class="btn btn-primary" onclick="openQuickAddMasterModal()">➕ Add New Master Item</button>
+          </div>
+          <div class="search-container">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="inventorySearch" class="search-input" placeholder="SEARCH INVENTORY OEM, PART NAME, BRAND, SUPPLIER, BARCODE..." oninput="renderInventoryGrid()">
+          </div>
+          <div id="inventoryRowContainer"></div>
+        </div>
+      </div>
+
+      <!-- VIEW 5: USER MANAGEMENT MODULE -->
+      <div id="view-users" class="view-content">
+        <div class="card">
+          <div class="card-title-bar">
+            <div class="card-title">👤 Register New System User</div>
+          </div>
+          <form id="userRegForm" onsubmit="handleRegisterUserSubmit(event)">
+            <div class="form-row">
+              <div class="form-group">
+                <label>Full Name</label>
+                <input type="text" id="userFullNameInput" placeholder="E.G. JUAN DELA CRUZ" required>
+              </div>
+              <div class="form-group">
+                <label>Username</label>
+                <input type="text" id="userUsernameInput" placeholder="E.G. MANAGER1 / CASHIER1" required>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>Password</label>
+                <input type="password" id="userPasswordInput" placeholder="••••••••" required>
+              </div>
+              <div class="form-group">
+                <label>Role Privilege</label>
+                <select id="userRoleSelect" required>
+                  <option value="MANAGER">MANAGER</option>
+                  <option value="CASHIER">CASHIER</option>
+                </select>
+              </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="padding: 10px 20px;">➕ Create System Account</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <div class="card-title-bar">
+            <div class="card-title">👥 Registered System Users List</div>
+          </div>
+          <table class="report-table">
+            <thead>
+              <tr>
+                <th>User ID</th>
+                <th>Full Name</th>
+                <th>Username</th>
+                <th style="text-align:center;">Role Privilege</th>
+                <th style="text-align:center;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="usersTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- RESTOCK MODAL -->
+  <div id="restockModal" class="modal-overlay" onclick="closeRestockOnOverlay(event)">
+    <div class="modal-card" style="max-width: 450px;">
+      <div class="modal-header">
+        <div>
+          <h3>📦 RESTOCK VARIANT</h3>
+          <span id="restockBatchSub" class="modal-subtitle">VARIANT: ---</span>
+        </div>
+        <button class="modal-close-btn" onclick="closeRestockModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="restockForm">
+          <input type="hidden" id="restockBatchCodeInput">
+          <div class="form-group">
+            <label>Current Stock</label>
+            <input type="text" id="restockCurrentStock" readonly style="background:#f1f5f9; font-weight:bold;">
+          </div>
+          <div class="form-group">
+            <label>Quantity to Add</label>
+            <input type="number" id="restockAddQty" min="1" placeholder="E.G. 10" required autofocus>
+          </div>
+          <button type="submit" class="btn btn-success" style="width:100%; justify-content:center; padding:12px;">➕ Update & Restock</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- QUICK CODING MODAL -->
+  <div id="quickCodingModal" class="modal-overlay" onclick="closeQuickCodingOnOverlay(event)">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <h3>➕ NEW SUPPLIER CODING VARIANT</h3>
+          <span id="quickCodingMasterSub" class="modal-subtitle">MASTER ITEM: ---</span>
+        </div>
+        <button class="modal-close-btn" onclick="closeQuickCodingModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="quickCodingForm">
+          <input type="hidden" id="quickMasterIdInput">
+          <div class="form-group">
+            <label>Select Supplier</label>
+            <select id="qSupplierInput" required>
+              <option value="">SELECT SUPPLIER...</option>
+              <option value="ABC AUTO SUPPLY CO.">ABC AUTO SUPPLY CO.</option>
+              <option value="JAPAPARTS TRADING">JAPAPARTS TRADING</option>
+              <option value="TOYOTA GENUINE PARTS DIRECT">TOYOTA GENUINE PARTS DIRECT</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Cost Price (₱)</label>
+              <input type="number" step="0.01" id="qCostInput" placeholder="0.00" required>
+            </div>
+            <div class="form-group">
+              <label>Selling Price (₱)</label>
+              <input type="number" step="0.01" id="qSellingInput" placeholder="0.00" required>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Initial Stock Count</label>
+              <input type="number" id="qStockInput" placeholder="0" required>
+            </div>
+            <div class="form-group">
+              <label>Low Stock Limit ⚠️</label>
+              <input type="number" id="qLowStockInput" value="2" required>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-success" style="width:100%; justify-content:center; padding:12px;">Save New Variant</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ITEM DETAIL MODAL -->
+  <div id="itemModal" class="modal-overlay" onclick="closeModalOnOverlay(event)">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <h3 id="modalPartName">PART NAME</h3>
+          <span id="modalOemSubtitle" class="modal-subtitle">OEM: ---</span>
+        </div>
+        <button class="modal-close-btn" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="modalGalleryMain" class="modal-gallery-main">⚙️</div>
+        <div id="modalThumbRow" class="modal-thumb-row"></div>
+        <div class="info-profile-grid">
+          <div class="profile-item"><div class="profile-label">Brand</div><div id="mBrand" class="profile-value">---</div></div>
+          <div class="profile-item"><div class="profile-label">OEM / Part Number</div><div id="mOem" class="profile-value">---</div></div>
+          <div class="profile-item"><div class="profile-label">Vehicle Make</div><div id="mMake" class="profile-value">---</div></div>
+          <div class="profile-item"><div class="profile-label">Vehicle Model</div><div id="mModel" class="profile-value">---</div></div>
+          <div class="profile-item"><div class="profile-label">Year</div><div id="mYear" class="profile-value">---</div></div>
+          <div class="profile-item"><div class="profile-label">Engine</div><div id="mEngine" class="profile-value">---</div></div>
+          <div class="profile-item"><div class="profile-label">Unit</div><div id="mUnit" class="profile-value">---</div></div>
+          <div class="profile-item"><div class="profile-label">Position</div><div id="mPosition" class="profile-value">---</div></div>
+          <div class="profile-item"><div class="profile-label">Origin</div><div id="mOrigin" class="profile-value">---</div></div>
+          <div class="profile-item full-width"><div class="profile-label">Description</div><div id="mDesc" class="profile-value">---</div></div>
+        </div>
+        <div class="modal-batches-section">
+          <div style="font-size: 13px; font-weight: 700; margin-bottom: 10px;">🏷️ Associated Variants</div>
+          <div id="modalBatchesList"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LIGHTBOX MODAL -->
+  <div id="lightboxOverlay" class="lightbox-overlay" onclick="closeLightboxOnOverlay(event)">
+    <div class="lightbox-card">
+      <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
+      <button class="lightbox-btn lightbox-prev" onclick="prevLightboxImage()">❮</button>
+      <button class="lightbox-btn lightbox-next" onclick="nextLightboxImage()">❯</button>
+      <img id="lightboxImg" class="lightbox-img" src="" alt="Enlarged View">
+      <div id="lightboxCounter" class="lightbox-counter">1 / 1</div>
+    </div>
+  </div>
+
+  <!-- JS SCRIPT FILES -->
   <script src="js/config.js"></script>
   <script src="js/api.js"></script>
   <script src="js/app.js"></script>
