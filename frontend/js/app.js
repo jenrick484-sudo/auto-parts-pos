@@ -1161,3 +1161,45 @@ function togglePasswordVisibility() {
     toggleBtn.textContent = '👁️';
   }
 }
+
+const masterForm = document.getElementById('masterForm');
+if (masterForm) {
+  masterForm.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const oem = document.getElementById('oemInput').value;
+    const brand = document.getElementById('brandInput').value;
+    const partName = document.getElementById('partNameInput').value;
+    const make = document.getElementById('vehicleMakeInput').value;
+    const model = document.getElementById('vehicleModelInput').value;
+    const year = document.getElementById('yearInput').value;
+    const engine = document.getElementById('engineInput').value;
+    const unitType = document.getElementById('unitInput').value;
+    const pcsPerBox = parseInt(document.getElementById('pcsPerBoxInput').value) || null;
+    const position = document.getElementById('positionInput').value;
+    const origin = document.getElementById('originInput').value;
+    const description = document.getElementById('descInput').value;
+
+    try {
+      // 1. Save Master Item via API
+      const savedMaster = await apiRequest('/masters', 'POST', {
+        oem, brand, partName, make, model, year, engine,
+        unitType, pcsPerBox, position, origin, description,
+        images: currentUploadedImages
+      });
+
+      // 2. Clear Form
+      this.reset();
+      currentUploadedImages = [];
+      renderFormImagePreviews();
+      renderStep1Grid();
+
+      // 3. HCI Workflow Transition: Agad na buksan ang Step 3 Modal (Supplier Variant Coding)
+      if (confirm(`✅ Master Item na-save na!\n\nGusto mo bang lagyan agad ito ng Supplier Coding Variant at Barcode (Step 3)?`)) {
+        openQuickCodingModal(savedMaster.id);
+      }
+    } catch (err) {
+      alert(`❌ Save Failed: ${err.message}`);
+    }
+  });
+}
