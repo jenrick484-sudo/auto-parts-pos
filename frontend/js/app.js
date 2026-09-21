@@ -1001,18 +1001,34 @@ if (quickCodingForm) {
 /* MASTER ITEM IMAGE UPLOAD HANDLER (MAX 10) */
 let currentUploadedImages = [];
 
-function handleImageUpload(event) {
+// 1. HANDLER: UPLOAD FROM GALLERY
+function handleGalleryUpload(event) {
   const files = Array.from(event.target.files);
   if (!files || files.length === 0) return;
+  
+  processSelectedFiles(files);
+  event.target.value = ''; // Reset input element
+}
 
+// 2. HANDLER: TAKE PICTURE FROM CAMERA
+function handleCameraCapture(event) {
+  const files = Array.from(event.target.files);
+  if (!files || files.length === 0) return;
+  
+  processSelectedFiles(files);
+  event.target.value = ''; // Reset input element
+}
+
+// 3. COMMON HELPER: PROCESS FILES & CONVERT TO BASE64
+function processSelectedFiles(files) {
   if (currentUploadedImages.length + files.length > 10) {
     alert('Maximum 10 pictures allowed per item!');
   }
-
+  
   const availableSlots = 10 - currentUploadedImages.length;
   const filesToProcess = files.slice(0, availableSlots);
-
   let processedCount = 0;
+
   filesToProcess.forEach(file => {
     const reader = new FileReader();
     reader.onload = function(e) {
@@ -1024,16 +1040,15 @@ function handleImageUpload(event) {
     };
     reader.readAsDataURL(file);
   });
-
-  event.target.value = '';
 }
 
+// 4. RENDER THUMBNAIL PREVIEWS WITH COUNT
 function renderFormImagePreviews() {
   const preview = document.getElementById('imagePreview');
   if (!preview) return;
 
   if (currentUploadedImages.length === 0) {
-    preview.innerHTML = '<span style="color:#94a3b8; font-size:13px;">No images uploaded yet (0/10)</span>';
+    preview.innerHTML = 'No images uploaded yet (0/10)';
     return;
   }
 
@@ -1041,15 +1056,16 @@ function renderFormImagePreviews() {
   currentUploadedImages.forEach((img, idx) => {
     html += `
       <div class="thumb-item">
-        <img src="${img}">
-        <button type="button" class="remove-thumb-btn" onclick="removeUploadedImage(${idx})">&times;</button>
-      </div>
-    `;
+        <img src="${img}" alt="Preview ${idx + 1}" />
+        <button type="button" class="remove-thumb-btn" onclick="removeUploadedImage(${idx})" title="Remove photo">&times;</button>
+      </div>`;
   });
   html += `</div><div style="font-size:12px; font-weight:700; color:#2563eb; margin-top:8px;">${currentUploadedImages.length}/10 Pictures Uploaded</div>`;
+  
   preview.innerHTML = html;
 }
 
+// 5. REMOVE SINGLE IMAGE FROM PREVIEW
 function removeUploadedImage(idx) {
   currentUploadedImages.splice(idx, 1);
   renderFormImagePreviews();
