@@ -50,10 +50,8 @@ async function handleLoginSubmit(event) {
   event.preventDefault();
   const username = document.getElementById('loginUsernameInput').value.trim();
   const password = document.getElementById('loginPasswordInput').value;
-
   try {
     const res = await apiRequest('/auth/login', 'POST', { username, password });
-    
     localStorage.setItem('pos_token', res.token);
     localStorage.setItem('pos_user', JSON.stringify(res.user));
     loggedInUser = res.user;
@@ -61,12 +59,11 @@ async function handleLoginSubmit(event) {
     document.getElementById('loginErrorMsg').style.display = 'none';
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('loginForm').reset();
-
-    document.getElementById('activeUserFullName').textContent = loggedInUser.fullName;
+    document.getElementById('activeUserFullName').textContent = loggedInUser.fullName || loggedInUser.username;
     document.getElementById('activeUserRoleBadge').textContent = loggedInUser.role;
 
-    applyUserRoleRestrictions();
-    switchView('view-dashboard', document.querySelectorAll('.nav-item')[0]);
+    // Ang applyUserRoleRestrictions() na ang maglilipat sa Cashier sa 'view-sale'
+    applyUserRoleRestrictions(); 
   } catch (err) {
     const errBox = document.getElementById('loginErrorMsg');
     errBox.textContent = `❌ ${err.message}`;
