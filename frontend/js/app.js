@@ -1151,3 +1151,16 @@ function closeLightboxOnOverlay(e) {
 }
 function prevLightboxImage() {}
 function nextLightboxImage() {}
+
+// Password Visibility Toggle Function (HCI Recognition over Recall)
+function togglePasswordVisibility() {
+  const passInput = document.getElementById('loginPasswordInput');
+  const toggleBtn = document.querySelector('.toggle-password-btn');
+  if (passInput.type === 'password') {
+    passInput.type = 'text';
+    toggleBtn.textContent = '🙈';
+  } else {
+    passInput.type = 'password';
+    toggleBtn.textContent = '👁️';
+  }
+}
