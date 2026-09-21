@@ -21,7 +21,7 @@ let isCameraActive = false;
 function toUpper(val) {
   return val ? val.toString().trim().toUpperCase() : '';
 }
-masterForm
+
 function getTodayString() {
   const now = new Date();
   const year = now.getFullYear();
