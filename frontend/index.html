@@ -421,79 +421,135 @@
         </div>
       </div>
 
-      <!-- VIEW 5: REGISTER MASTER ITEM -->
+      !-- VIEW 5: REGISTER MASTER ITEM (HCI ENHANCED) -->
       <div id="view-master" class="view-content">
-        <div class="card">
-          <div class="card-title-bar">
-            <span class="card-title">📦 Register New Master Item</span>
+        
+        <!-- Workflow Stepper Indicator (Visibility of System Status) -->
+        <div class="workflow-stepper-card">
+          <div class="step-item completed">
+            <span class="step-num">✓</span>
+            <span class="step-label">1. Login & Auth</span>
           </div>
-
+          <div class="step-divider"></div>
+          <div class="step-item active">
+            <span class="step-num">2</span>
+            <span class="step-label">2. Master Item Registration</span>
+          </div>
+          <div class="step-divider"></div>
+          <div class="step-item pending">
+            <span class="step-num">3</span>
+            <span class="step-label">3. Supplier Coding & Barcode</span>
+          </div>
+        </div>
+      
+        <div class="card form-master-card">
+          <div class="card-title-bar">
+            <div>
+              <span class="card-title">📦 Register New Master Item Catalog</span>
+              <p class="card-subtitle">Ipasok ang mga pangunahing detalye ng piyesa at sasakyan.</p>
+            </div>
+            <span class="badge-tag">STEP 2 OF 3</span>
+          </div>
+      
           <form id="masterForm">
-            <div class="form-row">
-              <div class="form-group">
-                <label for="oemInput">OEM / PART NUMBER *</label>
-                <input type="text" id="oemInput" placeholder="HAL: 17801-0M020" required />
+            <!-- SECTION 1: CORE PART IDENTIFICATION (CHUNKING) -->
+            <div class="form-section-box">
+              <div class="section-header">
+                <span class="section-icon">🏷️</span>
+                <h4>1. Part Identification</h4>
               </div>
-              <div class="form-group">
-                <label for="brandInput">BRAND *</label>
-                <input type="text" id="brandInput" placeholder="HAL: TOYOTA / VIC" required />
-              </div>
-              <div class="form-group">
-                <label for="partNameInput">PART NAME *</label>
-                <input type="text" id="partNameInput" placeholder="HAL: AIR FILTER" required />
-              </div>
-            </div>
-
-            <div class="form-row">
-              <div class="form-group">
-                <label for="vehicleMakeInput">VEHICLE MAKE</label>
-                <input type="text" id="vehicleMakeInput" placeholder="HAL: TOYOTA" />
-              </div>
-              <div class="form-group">
-                <label for="vehicleModelInput">VEHICLE MODEL</label>
-                <input type="text" id="vehicleModelInput" placeholder="HAL: VIOS / YARIS" />
-              </div>
-              <div class="form-group">
-                <label for="yearInput">YEAR</label>
-                <input type="text" id="yearInput" placeholder="HAL: 2014 - 2021" />
-              </div>
-              <div class="form-group">
-                <label for="engineInput">ENGINE</label>
-                <input type="text" id="engineInput" placeholder="HAL: 1NZ-FE / 2NZ-FE" />
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="oemInput">OEM / PART NUMBER <span class="required-asterisk">*</span></label>
+                  <div class="input-with-icon">
+                    <span class="field-icon">🔢</span>
+                    <input type="text" id="oemInput" placeholder="HAL: 17801-0M020" required />
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="brandInput">BRAND / MANUFACTURER <span class="required-asterisk">*</span></label>
+                  <div class="input-with-icon">
+                    <span class="field-icon">🏢</span>
+                    <input type="text" id="brandInput" placeholder="HAL: TOYOTA / VIC" required />
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label for="partNameInput">PART NAME <span class="required-asterisk">*</span></label>
+                  <div class="input-with-icon">
+                    <span class="field-icon">⚙️</span>
+                    <input type="text" id="partNameInput" placeholder="HAL: AIR FILTER" required />
+                  </div>
+                </div>
               </div>
             </div>
-
-            <div class="form-row">
-              <div class="form-group">
-                <label for="unitInput">UNIT TYPE</label>
-                <select id="unitInput">
-                  <option value="pc" selected>PC (Piece)</option>
-                  <option value="set">SET</option>
-                  <option value="box">BOX</option>
-                  <option value="pair">PAIR</option>
-                </select>
+      
+            <!-- SECTION 2: VEHICLE COMPATIBILITY -->
+            <div class="form-section-box">
+              <div class="section-header">
+                <span class="section-icon">🚗</span>
+                <h4>2. Vehicle Compatibility Specs</h4>
               </div>
-              <div class="form-group">
-                <label for="pcsPerBoxInput">PCS PER BOX</label>
-                <input type="number" id="pcsPerBoxInput" placeholder="10" />
-              </div>
-              <div class="form-group">
-                <label for="positionInput">POSITION</label>
-                <input type="text" id="positionInput" placeholder="HAL: FRONT / REAR / LEFT" />
-              </div>
-              <div class="form-group">
-                <label for="originInput">ORIGIN</label>
-                <input type="text" id="originInput" placeholder="HAL: JAPAN / TAIWAN" />
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="vehicleMakeInput">VEHICLE MAKE</label>
+                  <input type="text" id="vehicleMakeInput" placeholder="HAL: TOYOTA" />
+                </div>
+                <div class="form-group">
+                  <label for="vehicleModelInput">VEHICLE MODEL</label>
+                  <input type="text" id="vehicleModelInput" placeholder="HAL: VIOS / YARIS" />
+                </div>
+                <div class="form-group">
+                  <label for="yearInput">YEAR RANGE</label>
+                  <input type="text" id="yearInput" placeholder="HAL: 2014 - 2021" />
+                </div>
+                <div class="form-group">
+                  <label for="engineInput">ENGINE MODEL</label>
+                  <input type="text" id="engineInput" placeholder="HAL: 1NZ-FE / 2NZ-FE" />
+                </div>
               </div>
             </div>
-
-            <div class="form-group">
-              <label for="descInput">DESCRIPTION & SPECIFICATIONS</label>
-              <textarea id="descInput" rows="2" placeholder="Iba pang karagdagang detalye..."></textarea>
+      
+            <!-- SECTION 3: PACKAGING & POSITION -->
+            <div class="form-section-box">
+              <div class="section-header">
+                <span class="section-icon">📐</span>
+                <h4>3. Packaging & Physical Specs</h4>
+              </div>
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="unitInput">UNIT TYPE</label>
+                  <select id="unitInput">
+                    <option value="pc" selected>PC (Piece)</option>
+                    <option value="set">SET</option>
+                    <option value="box">BOX</option>
+                    <option value="pair">PAIR</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label for="pcsPerBoxInput">PCS PER BOX</label>
+                  <input type="number" id="pcsPerBoxInput" placeholder="10" />
+                </div>
+                <div class="form-group">
+                  <label for="positionInput">POSITION</label>
+                  <input type="text" id="positionInput" placeholder="HAL: FRONT / REAR / LEFT" />
+                </div>
+                <div class="form-group">
+                  <label for="originInput">COUNTRY OF ORIGIN</label>
+                  <input type="text" id="originInput" placeholder="HAL: JAPAN / TAIWAN" />
+                </div>
+              </div>
+              <div class="form-group">
+                <label for="descInput">DESCRIPTION & ADDITIONAL NOTES</label>
+                <textarea id="descInput" rows="2" placeholder="Iba pang karagdagang detalye ukol sa piyesa..."></textarea>
+              </div>
             </div>
-
-            <div class="form-group">
-              <label>ITEM PICTURES (UP TO 10 PICTURES)</label>
+      
+            <!-- SECTION 4: MULTI-IMAGE UPLOAD -->
+            <div class="form-section-box">
+              <div class="section-header">
+                <span class="section-icon">🖼️</span>
+                <h4>4. Item Gallery Upload (Max 10 Photos)</h4>
+              </div>
               <div class="image-upload-wrapper">
                 <input type="file" id="masterImageFiles" accept="image/*" multiple onchange="handleImageUpload(event)" />
               </div>
@@ -501,14 +557,17 @@
                 No images uploaded yet (0/10)
               </div>
             </div>
-
-            <button type="submit" class="btn btn-primary" style="height:44px; padding:0 24px;">
-              💾 SAVE MASTER ITEM
-            </button>
+      
+            <!-- SUBMIT ACTION BUTTON -->
+            <div class="form-actions-bar">
+              <button type="submit" class="btn btn-primary btn-save-master">
+                💾 SAVE MASTER ITEM & PROCEED TO STEP 3 ➔
+              </button>
+            </div>
           </form>
         </div>
-
-        <!-- Master Items Catalog List -->
+      
+        <!-- Registered Master Catalog Grid -->
         <div class="card">
           <div class="card-title-bar">
             <span class="card-title">📑 Registered Master Items Catalog</span>
@@ -516,6 +575,7 @@
           </div>
           <div id="step1Grid" class="catalog-grid"></div>
         </div>
+      
       </div>
 
       <!-- VIEW 6: CENTRAL INVENTORY -->
