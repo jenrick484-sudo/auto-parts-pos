@@ -512,37 +512,38 @@
             <!-- SECTION 3: PACKAGING & POSITION -->
             <div class="form-section-box">
               <div class="section-header">
-                <span class="section-icon">📐</span>
-                <h4>3. Packaging & Physical Specs</h4>
+                <span class="section-icon">🖼️</span>
+                <h4>4. Item Gallery Upload (Max 10 Photos)</h4>
               </div>
-              <div class="form-row">
-                <div class="form-group">
-                  <label for="unitInput">UNIT TYPE</label>
-                  <select id="unitInput">
-                    <option value="pc" selected>PC (Piece)</option>
-                    <option value="set">SET</option>
-                    <option value="box">BOX</option>
-                    <option value="pair">PAIR</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label for="pcsPerBoxInput">PCS PER BOX</label>
-                  <input type="number" id="pcsPerBoxInput" placeholder="10" />
-                </div>
-                <div class="form-group">
-                  <label for="positionInput">POSITION</label>
-                  <input type="text" id="positionInput" placeholder="HAL: FRONT / REAR / LEFT" />
-                </div>
-                <div class="form-group">
-                  <label for="originInput">COUNTRY OF ORIGIN</label>
-                  <input type="text" id="originInput" placeholder="HAL: JAPAN / TAIWAN" />
-                </div>
+
+              <!-- Dual Input Action Buttons (Gallery vs Live Camera) -->
+              <div class="image-source-actions">
+                <!-- Option 1: Choose from Gallery -->
+                <button type="button" class="btn btn-secondary btn-img-option" onclick="document.getElementById('galleryImageInput').click()">
+                  📁 Upload from Gallery
+                </button>
+                <input 
+                  type="file" 
+                  id="galleryImageInput" 
+                  accept="image/*" 
+                  multiple 
+                  style="display: none;" 
+                  onchange="handleGalleryUpload(event)" 
+                />
+
+                <!-- Option 2: Open Camera to Take Picture -->
+                <button type="button" class="btn btn-primary btn-img-option" onclick="document.getElementById('cameraImageInput').click()">
+                  📷 Take Picture
+                </button>
+                <input 
+                  type="file" 
+                  id="cameraImageInput" 
+                  accept="image/*" 
+                  capture="environment" 
+                  style="display: none;" 
+                  onchange="handleCameraCapture(event)" 
+                />
               </div>
-              <div class="form-group">
-                <label for="descInput">DESCRIPTION & ADDITIONAL NOTES</label>
-                <textarea id="descInput" rows="2" placeholder="Iba pang karagdagang detalye ukol sa piyesa..."></textarea>
-              </div>
-            </div>
       
             <!-- SECTION 4: MULTI-IMAGE UPLOAD -->
             <div class="form-section-box">
