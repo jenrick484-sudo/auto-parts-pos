@@ -29,7 +29,7 @@ async function apiRequest(endpoint, method = 'GET', body = null, customLoadingMs
     const data = await response.json();
 
     if (!response.ok) {
-      if (response.status === 401 || response.status === 403) {
+      if (response.status === 401) {
         localStorage.removeItem('pos_token');
         localStorage.removeItem('pos_user');
         document.getElementById('loginScreen').style.display = 'flex';
