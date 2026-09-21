@@ -72,7 +72,7 @@ async function handleLoginSubmit(event) {
 }
 
 function handleLogout() {
-  if (confirm('Sigurado ka bang gusto mong mag-logout?')) {
+  if (confirm('Are you sure you want to log out?')) {
     localStorage.removeItem('pos_token');
     localStorage.removeItem('pos_user');
     loggedInUser = null;
@@ -471,21 +471,18 @@ function calculateChange() {
 }
 
 async function processCheckout() {
-  if (cart.length === 0) return alert('Walang laman ang Cart!');
-
+  if (cart.length === 0) return alert('Cart is empty!');
   const grandTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
   const totalCost = cart.reduce((sum, item) => sum + (item.cost * item.qty), 0);
   const cashInput = document.getElementById('cashTenderedInput');
   const cash = cashInput ? parseFloat(cashInput.value) || 0 : 0;
-
-  if (cash < grandTotal) return alert('Kulang ang ibinayad na Cash!');
+  
+  if (cash < grandTotal) return alert('Insufficient Cash Tendered!');
 
   try {
     const payload = { cart, cash, grandTotal, totalCost, change: cash - grandTotal };
     const res = await apiRequest('/sales/checkout', 'POST', payload);
-
     alert(`✅ Transaction Complete!\nTxn No: ${res.txnNumber}\nTotal: ₱${grandTotal.toFixed(2)}\nChange: ₱${res.change.toFixed(2)}`);
-
     clearCart();
     if (cashInput) cashInput.value = '';
     renderSaleGrid();
@@ -1077,21 +1074,18 @@ if (masterForm) {
     const description = document.getElementById('descInput').value;
 
     try {
-      // 1. Save Master Item via API
       const savedMaster = await apiRequest('/masters', 'POST', {
         oem, brand, partName, make, model, year, engine,
         unitType, pcsPerBox, position, origin, description,
         images: currentUploadedImages
       });
 
-      // 2. Clear Form
       this.reset();
       currentUploadedImages = [];
       renderFormImagePreviews();
       renderStep1Grid();
 
-      // 3. HCI Workflow Transition: Agad na buksan ang Step 3 Modal (Supplier Variant Coding)
-      if (confirm(`✅ Master Item na-save na!\n\nGusto mo bang lagyan agad ito ng Supplier Coding Variant at Barcode (Step 3)?`)) {
+      if (confirm(`✅ Master Item registered successfully!\n\nWould you like to add Supplier Variant Coding and Barcodes now (Step 3)?`)) {
         openQuickCodingModal(savedMaster.id);
       }
     } catch (err) {
