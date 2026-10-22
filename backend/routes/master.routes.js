@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const masterController = require('../controllers/master.controller');
-const { verifyToken, authorizeRoles } = require('../middleware/auth.middleware');
+const { verifyToken, authorizeRoles } = require('../middleware/authMiddleware');
 
 // GET /api/masters - Kunin ang lahat ng Master Items kasama ang stock valuation
 router.get('/', verifyToken, masterController.getAllMasters);
