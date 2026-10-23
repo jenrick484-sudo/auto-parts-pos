@@ -29,6 +29,7 @@ app.use('/api/variants', require('./routes/variant.routes'));
 app.use('/api/sales', require('./routes/sale.routes'));
 app.use('/api/reports', require('./routes/report.routes'));
 app.use('/api/users', require('./routes/user.routes'));
+app.use('/api/suppliers', require('./routes/supplier.routes'));
 
 // GLOBAL 404 HANDLER
 app.use((req, res) => {

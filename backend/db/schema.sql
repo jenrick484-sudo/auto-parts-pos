@@ -73,9 +73,20 @@ CREATE TABLE IF NOT EXISTS sales_items (
     subtotal NUMERIC(10, 2) NOT NULL
 );
 
+-- 6. SUPPLIERS TABLE
+CREATE TABLE IF NOT EXISTS suppliers (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(255) NOT NULL UNIQUE,
+    contact_person VARCHAR(255) NOT NULL,
+    phone VARCHAR(50) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- INDEXES FOR FASTER POS & SEARCH PERFORMANCE
 CREATE INDEX IF NOT EXISTS idx_master_oem ON master_items(oem);
 CREATE INDEX IF NOT EXISTS idx_master_part_name ON master_items(part_name);
 CREATE INDEX IF NOT EXISTS idx_variant_barcode ON inventory_variants(barcode);
 CREATE INDEX IF NOT EXISTS idx_variant_code ON inventory_variants(code);
 CREATE INDEX IF NOT EXISTS idx_sales_date ON sales_transactions(created_at);
+CREATE INDEX IF NOT EXISTS idx_suppliers_name ON suppliers(name);

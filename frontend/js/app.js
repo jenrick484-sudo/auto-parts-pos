@@ -187,6 +187,7 @@ function switchView(viewId, element) {
     'view-reports': 'Financial & Performance Reports',
     'view-master': 'Master Item Management',
     'view-inventory': 'Central Inventory',
+    'view-suppliers': 'Supplier Management',
     'view-users': 'User Management & Accounts'
   };
   const titleEl = document.getElementById('pageTitle');
@@ -205,6 +206,7 @@ function switchView(viewId, element) {
   if (viewId === 'view-reports') renderReportsModule();
   if (viewId === 'view-master') renderStep1Grid();
   if (viewId === 'view-inventory') renderInventoryGrid();
+  if (viewId === 'view-suppliers') renderSuppliersTable();
   if (viewId === 'view-users') renderUsersTable();
 }
 
@@ -1440,6 +1442,89 @@ function renderDailyReport() {
   document.getElementById('dyGrossSales').textContent = `₱${dySales.toFixed(2)}`;
   document.getElementById('dyTotalCost').textContent = `₱${dyCost.toFixed(2)}`;
   document.getElementById('dyNetProfit').textContent, document.getElementById('dyNetProfit').textContent = `₱${dyProfit.toFixed(2)}`;
+}
+
+/* ========================================== */
+/* SUPPLIER MANAGEMENT                        */
+/* ========================================== */
+let registeredSuppliers = [];
+
+async function renderSuppliersTable() {
+  try {
+    registeredSuppliers = await apiRequest('/suppliers', 'GET');
+    const tbody = document.getElementById('suppliersTableBody');
+    tbody.innerHTML = '';
+
+    if (registeredSuppliers.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#94a3b8; padding:16px;">No suppliers registered yet.</td></tr>`;
+      return;
+    }
+
+    registeredSuppliers.forEach(s => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><strong>#SUP-${String(s.id).padStart(3, '0')}</strong></td>
+        <td><strong>${escapeHtml(s.name)}</strong></td>
+        <td>${escapeHtml(s.contact_person)}</td>
+        <td>${escapeHtml(s.phone)}</td>
+        <td>${escapeHtml(s.email)}</td>
+        <td style="text-align:center;">
+          <button class="btn btn-danger" style="font-size:10px; padding:3px 8px;" onclick="deleteSupplier(${s.id})">🗑️ Delete</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+    updateSupplierDropdowns();
+  } catch (err) {
+    console.error('Failed to load suppliers:', err);
+  }
+}
+
+async function handleRegisterSupplierSubmit(event) {
+  event.preventDefault();
+
+  const name = document.getElementById('suppNameInput').value.trim();
+  const contactPerson = document.getElementById('suppContactPersonInput').value.trim();
+  const phone = document.getElementById('suppPhoneInput').value.trim();
+  const email = document.getElementById('suppEmailInput').value.trim();
+
+  try {
+    await apiRequest('/suppliers', 'POST', { name, contactPerson, phone, email });
+    document.getElementById('supplierRegForm').reset();
+    await renderSuppliersTable();
+    alert(`✅ Bagong supplier na si ${name} ay matagumpay na nairehistro!`);
+  } catch (err) {
+    alert(`❌ Error: ${err.message}`);
+  }
+}
+
+async function deleteSupplier(suppId) {
+  if (confirm('Sigurado ka bang gusto mong burahin ang supplier na ito?')) {
+    try {
+      await apiRequest(`/suppliers/${suppId}`, 'DELETE');
+      await renderSuppliersTable();
+      alert('✅ Supplier deleted successfully!');
+    } catch (err) {
+      alert(`❌ Error: ${err.message}`);
+    }
+  }
+}
+
+function updateSupplierDropdowns() {
+  const selectEl = document.getElementById('qSupplierInput');
+  if (!selectEl) return;
+  
+  const currentVal = selectEl.value;
+  selectEl.innerHTML = `<option value="">SELECT SUPPLIER...</option>`;
+  
+  registeredSuppliers.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s.name;
+    opt.textContent = s.name;
+    selectEl.appendChild(opt);
+  });
+
+  if (currentVal) selectEl.value = currentVal;
 }
 
 /* ========================================== */
