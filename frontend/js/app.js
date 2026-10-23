@@ -622,25 +622,24 @@ function closeRestockOnOverlay(e) {
   if (e.target.id === 'restockModal') closeRestockModal();
 }
 
-document.getElementById('restockForm')?.addEventListener('submit', async function(e) {
+document.getElementById('restockForm').addEventListener('submit', async function(e) {
   e.preventDefault();
+
   const batchCode = document.getElementById('restockBatchCodeInput').value;
   const addQty = parseInt(document.getElementById('restockAddQty').value) || 0;
-  
-  const batch = inventoryBatches.find(b => (b.code || b.variant_code) === batchCode);
-  if (batch && addQty > 0) {
-    try {
-      const variantId = batch.id;
-      await apiRequest(`/variants/${variantId}/restock`, 'PATCH', { addQty });
-    } catch (err) {
-      console.warn("Restock API offline fallback", err);
-    }
-    batch.stock = Number(batch.stock) + addQty;
+
+  if (addQty <= 0) {
+    alert('⚠️ Maglagay ng wastong dami ng stock na idadagdag.');
+    return;
+  }
+
+  try {
+    await apiRequest(`/variants/${batchCode}/restock`, 'PATCH', { addQty });
     closeRestockModal();
-    renderDashboard();
-    renderInventoryGrid();
-    renderSaleGrid();
-    alert(`Successfully added +${addQty} stock to ${batchCode}! New Stock: ${batch.stock}`);
+    await loadInventoryVariants();
+    alert(`✅ Matagumpay na naidagdag ang +${addQty} stock sa database para sa ${batchCode}!`);
+  } catch (err) {
+    alert(`❌ Nabigong mag-restock: ${err.message}`);
   }
 });
 
@@ -661,35 +660,23 @@ function closeQuickCodingOnOverlay(e) {
   if (e.target.id === 'quickCodingModal') closeQuickCodingModal();
 }
 
-document.getElementById('quickCodingForm')?.addEventListener('submit', async function(e) {
+document.getElementById('quickCodingForm').addEventListener('submit', async function(e) {
   e.preventDefault();
+
   const masterId = parseInt(document.getElementById('quickMasterIdInput').value);
-  const supplier = toUpper(document.getElementById('qSupplierInput').value);
+  const supplier = document.getElementById('qSupplierInput').value;
   const cost = parseFloat(document.getElementById('qCostInput').value);
   const price = parseFloat(document.getElementById('qSellingInput').value);
   const stock = parseInt(document.getElementById('qStockInput').value);
-  const lowStockLimit = parseInt(document.getElementById('qLowStockInput').value) || 0;
+  const lowStockLimit = parseInt(document.getElementById('qLowStockInput').value) || 2;
 
-  const batchCode = generateItemVariantCode(masterId);
-  const newVariantPayload = {
-    master_id: masterId,
-    variant_code: batchCode,
-    barcode: batchCode,
-    supplier,
-    cost,
-    price,
-    stock,
-    low_stock_limit: lowStockLimit
-  };
+  if (!supplier) {
+    alert('⚠️ Pumili muna ng rehistradong supplier.');
+    return;
+  }
 
   try {
-    await apiRequest('/variants', 'POST', newVariantPayload);
-    await loadProductionDataFromBackend();
-  } catch (err) {
-    console.warn("Variant API offline fallback", err);
-    inventoryBatches.push({
-      code: batchCode,
-      barcode: batchCode,
+    await apiRequest('/variants', 'POST', {
       masterId,
       supplier,
       cost,
@@ -697,13 +684,13 @@ document.getElementById('quickCodingForm')?.addEventListener('submit', async fun
       stock,
       lowStockLimit
     });
-  }
 
-  closeQuickCodingModal();
-  renderDashboard();
-  renderInventoryGrid();
-  renderSaleGrid();
-  alert(`New Coding Variant ${batchCode} successfully added!`);
+    closeQuickCodingModal();
+    await loadInventoryVariants();
+    alert('✅ Matagumpay na naidagdag ang bagong variant sa database!');
+  } catch (err) {
+    alert(`❌ Nabigong magdagdag ng variant: ${err.message}`);
+  }
 });
 
 function getMasterItemTotalStock(masterId) {
@@ -1616,3 +1603,5 @@ document.addEventListener('DOMContentLoaded', () => {
   const dateFilter = document.getElementById('salesDateFilter');
   if (dateFilter) dateFilter.value = getTodayString();
 });
+
+  openQuickCodingModal(masterId)

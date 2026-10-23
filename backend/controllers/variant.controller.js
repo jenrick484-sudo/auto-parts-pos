@@ -1,5 +1,6 @@
 const db = require('../config/db');
 
+// KUNIN LAHAT NG VARIANTS KASAMA ANG MASTER ITEM DETAILS AT SUPPLIER
 exports.getAllVariants = async (req, res) => {
   try {
     const result = await db.query(`
@@ -14,11 +15,16 @@ exports.getAllVariants = async (req, res) => {
   }
 };
 
+// GUMAWA NG BAGONG VARIANT / CODING (NAKABASE SA NAPILING SUPPLIER)
 exports.createVariant = async (req, res) => {
   try {
     const { masterId, supplier, cost, price, stock, lowStockLimit } = req.body;
 
-    // GENERATE UNIQUE CODE (IT1-COD-001)
+    if (!supplier) {
+      return res.status(400).json({ message: 'Kinakailangan ang supplier para sa variant na ito.' });
+    }
+
+    // AWTOMATIKONG GUMAWA NG UNIQUE CODE AT BARCODE KASAMA SA DATABASE
     const countResult = await db.query('SELECT COUNT(*) FROM inventory_variants WHERE master_id = $1', [masterId]);
     const seq = String(parseInt(countResult.rows[0].count) + 1).padStart(3, '0');
     const code = `IT${masterId}-COD-${seq}`;
@@ -30,13 +36,24 @@ exports.createVariant = async (req, res) => {
       RETURNING *;
     `;
 
-    const result = await db.query(query, [code, barcode, masterId, supplier.toUpperCase(), cost, price, stock, lowStockLimit || 2]);
+    const result = await db.query(query, [
+      code,
+      barcode,
+      masterId,
+      supplier.toUpperCase(),
+      cost,
+      price,
+      stock,
+      lowStockLimit || 2
+    ]);
+
     res.status(201).json(result.rows[0]);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 };
 
+// MAG-RESTOCK NG SPECIFIC VARIANT SA DATABASE
 exports.restockVariant = async (req, res) => {
   try {
     const { code } = req.params;
