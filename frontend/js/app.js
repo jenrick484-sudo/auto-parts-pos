@@ -4,7 +4,7 @@
    Production Ready: Initialized with empty arrays. Data is fetched dynamically
    from the backend API post-authentication.
    ====================================================================== */
-handleRegisterUserSubmit(event)
+
 /* SECURITY & UTILITY HELPERS */
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, char => ({
@@ -156,18 +156,23 @@ function applyUserRoleRestrictions() {
   if (!loggedInUser) return;
 
   if (loggedInUser.role === 'CASHIER') {
-    // CASHIER: POS / Checkout only (index 1)
+    // CASHIER: POS / Checkout lamang ang makikita (index 1)
     navItems.forEach((item, idx) => {
       item.style.display = idx === 1 ? 'flex' : 'none';
     });
     switchView('view-sale', navItems[1]);
   } else if (loggedInUser.role === 'MANAGER') {
-    // MANAGER: Lahat maliban sa System Users (index 6)
+    // MANAGER: Lahat makikita MALIBAN sa User Management (index 7 o kung saan man nakaposisyon ang view-users)
     navItems.forEach((item, idx) => {
-      item.style.display = idx === 6 ? 'none' : 'flex';
+      // Palitan ang index number batay sa eksaktong posisyon ng 'view-users' sa iyong sidebar menu
+      if (idx === 7) { 
+        item.style.display = 'none'; // Nakatago ang User Management para sa Manager
+      } else {
+        item.style.display = 'flex'; // Kasama ang Suppliers, Central Inventory, atbp.
+      }
     });
   } else {
-    // ADMIN: Lahat ng module ay makikita
+    // ADMIN: Lahat ng module ay makikita at naa-access
     navItems.forEach(item => item.style.display = 'flex');
   }
 }
