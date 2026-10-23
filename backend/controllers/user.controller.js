@@ -18,13 +18,18 @@ exports.createUser = async (req, res) => {
   try {
     const { fullName, username, password, role } = req.body;
 
+    if (!fullName || !username || !password || !role) {
+      return res.status(400).json({ message: 'Lahat ng fields ay kinakailangan (Full Name, Username, Password, Role).' });
+    }
+
     if (role === 'ADMIN') {
       return res.status(400).json({ message: 'Isa lamang ang pwedeng maging System Admin!' });
     }
 
+    // Suriin kung may kaparehong username na umiiral
     const checkUser = await db.query(
       'SELECT id FROM users WHERE UPPER(username) = UPPER($1)',
-      [username]
+      [username.trim()]
     );
 
     if (checkUser.rows.length > 0) {
@@ -40,10 +45,16 @@ exports.createUser = async (req, res) => {
       RETURNING id, full_name, username, role, created_at
     `;
 
-    const result = await db.query(query, [fullName.toUpperCase(), username.toUpperCase(), hashedPassword, role]);
+    const result = await db.query(query, [
+      fullName.trim().toUpperCase(), 
+      username.trim().toUpperCase(), 
+      hashedPassword, 
+      role
+    ]);
+
     res.status(201).json(result.rows[0]);
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    res.status(500).json({ message: 'Database error: ' + err.message });
   }
 };
 

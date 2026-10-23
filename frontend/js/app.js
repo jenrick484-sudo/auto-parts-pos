@@ -4,7 +4,7 @@
    Production Ready: Initialized with empty arrays. Data is fetched dynamically
    from the backend API post-authentication.
    ====================================================================== */
-
+handleRegisterUserSubmit(event)
 /* SECURITY & UTILITY HELPERS */
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, char => ({
@@ -1563,28 +1563,34 @@ function renderUsersTable() {
   });
 }
 
-async function handleRegisterUserSubmit(e) {
-  e.preventDefault();
-  const full_name = toUpper(document.getElementById('userFullNameInput').value);
-  const username = toUpper(document.getElementById('userUsernameInput').value);
-  const password = document.getElementById('userPasswordInput').value;
-  const role = document.getElementById('userRoleSelect').value;
+async function handleRegisterUserSubmit(event) {
+  event.preventDefault();
+  
+  const fullNameInput = document.getElementById('userFullNameInput');
+  const usernameInput = document.getElementById('userUsernameInput');
+  const passwordInput = document.getElementById('userPasswordInput');
+  const roleSelect = document.getElementById('userRoleSelect');
 
-  if (role === 'ADMIN') {
-    alert('Isa lamang ang puwedeng maging System Admin!');
+  const fullName = fullNameInput ? fullNameInput.value.trim() : '';
+  const username = usernameInput ? usernameInput.value.trim() : '';
+  const password = passwordInput ? passwordInput.value : '';
+  const role = roleSelect ? roleSelect.value : '';
+
+  if (!fullName || !username || !password || !role) {
+    alert('⚠️ Mangyaring punan ang lahat ng kinakailangang impormasyon.');
     return;
   }
 
-  const payload = { full_name, username, password, role };
   try {
-    await apiRequest('/users', 'POST', payload);
-    await loadProductionDataFromBackend();
-    renderUsersTable();
+    const response = await apiRequest('/users', 'POST', { fullName, username, password, role });
+    
+    alert(`✅ Bagong account para kay ${response.full_name || fullName} ay matagumpay na nairehistro!`);
+    
     document.getElementById('userRegForm').reset();
-    alert(`✅ Bagong account para kay ${full_name} ay matagumpay na nairehistro!`);
+    renderUsersTable();
   } catch (err) {
-    console.error("User registration error:", err);
-    alert('Nabigong magrehistro ng user. Suriin ang koneksyon o kung may kaparehong username na.');
+    // Ipinapakita ang eksaktong mensahe ng error galing sa backend (hal. kapag may kaparehong username)
+    alert(`❌ Nabigong magrehistro ng user: ${err.message}`);
   }
 }
 
