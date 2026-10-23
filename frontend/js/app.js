@@ -156,15 +156,18 @@ function applyUserRoleRestrictions() {
   if (!loggedInUser) return;
 
   if (loggedInUser.role === 'CASHIER') {
+    // CASHIER: POS / Checkout only (index 1)
     navItems.forEach((item, idx) => {
-      item.style.display = (idx === 1) ? 'flex' : 'none';
+      item.style.display = idx === 1 ? 'flex' : 'none';
     });
     switchView('view-sale', navItems[1]);
   } else if (loggedInUser.role === 'MANAGER') {
+    // MANAGER: Lahat maliban sa System Users (index 6)
     navItems.forEach((item, idx) => {
-      item.style.display = (idx === 6) ? 'none' : 'flex';
+      item.style.display = idx === 6 ? 'none' : 'flex';
     });
   } else {
+    // ADMIN: Lahat ng module ay makikita
     navItems.forEach(item => item.style.display = 'flex');
   }
 }
@@ -173,6 +176,17 @@ function applyUserRoleRestrictions() {
 /* NAVIGATION & VIEW SWITCHER                 */
 /* ========================================== */
 function switchView(viewId, element) {
+  if (!loggedInUser) return;
+
+  // Role restriction validation
+  if (loggedInUser.role === 'CASHIER' && viewId !== 'view-sale') {
+    alert('Restricted access: Cashier can only access POS Checkout.');
+    return;
+  }
+  if (loggedInUser.role === 'MANAGER' && viewId === 'view-users') {
+    alert('Restricted access: Managers cannot access System Users.');
+    return;
+  }
   document.querySelectorAll('.view-content').forEach(view => view.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
 
