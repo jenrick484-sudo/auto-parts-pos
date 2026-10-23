@@ -1604,4 +1604,3 @@ document.addEventListener('DOMContentLoaded', () => {
   if (dateFilter) dateFilter.value = getTodayString();
 });
 
-  openQuickCodingModal(masterId)
