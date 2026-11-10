@@ -1,7 +1,7 @@
 /* ======================================================================
    DAIHO AUTOPARTS POS — PRODUCTION FRONTEND APPLICATION SCRIPT
    ====================================================================== */
-renderSaleGrid()
+
 /* SECURITY & UTILITY HELPERS */
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, char => ({
@@ -231,18 +231,23 @@ async function handleLoginSubmit(event) {
 
   try {
     let userMatch = null;
+
+    // 1. Subukang mag-login sa Backend API
     try {
       const authRes = await apiRequest('/auth/login', 'POST', { username: userIn, password: passIn });
-      if (authRes && authRes.user) {
-        userMatch = authRes.user;
+      if (authRes && (authRes.user || authRes.data)) {
+        userMatch = authRes.user || authRes.data;
         if (authRes.token) localStorage.setItem('pos_token', authRes.token);
       }
     } catch (apiErr) {
+      console.warn("Backend API login failed or offline mode:", apiErr);
       userMatch = systemUsers.find(u => u.username.toUpperCase() === userIn && u.password === passIn);
     }
 
+    // 2. I-verify ang credentials
     if (userMatch || userIn === "ADMIN") {
       loggedInUser = userMatch || { id: 1, fullName: "SYSTEM ADMINISTRATOR", username: userIn, role: "ADMIN" };
+      
       if (errorMsg) errorMsg.style.display = 'none';
       
       const loginScreen = document.getElementById('loginScreen');
@@ -251,12 +256,21 @@ async function handleLoginSubmit(event) {
       const loginForm = document.getElementById('loginForm');
       if (loginForm) loginForm.reset();
 
-      document.getElementById('activeUserFullName').textContent = loggedInUser.fullName || loggedInUser.full_name;
-      document.getElementById('activeUserRoleBadge').textContent = loggedInUser.role;
+      // Safe update sa Header User Info
+      const nameEl = document.getElementById('activeUserFullName');
+      if (nameEl) nameEl.textContent = loggedInUser.fullName || loggedInUser.full_name || "SYSTEM ADMINISTRATOR";
 
-      await loadProductionDataFromBackend();
-      applyUserRoleRestrictions();
-      switchView('view-dashboard', document.querySelectorAll('.nav-item')[0]);
+      const roleEl = document.getElementById('activeUserRoleBadge');
+      if (roleEl) roleEl.textContent = loggedInUser.role || "ADMIN";
+
+      // Ligtas na pag-load ng Dashboard & Data
+      try {
+        await loadProductionDataFromBackend();
+        applyUserRoleRestrictions();
+        switchView('view-dashboard', document.querySelectorAll('.nav-item')[0]);
+      } catch (loadErr) {
+        console.error("Error loading views post-login:", loadErr);
+      }
     } else {
       if (errorMsg) {
         errorMsg.style.display = 'block';
@@ -264,9 +278,10 @@ async function handleLoginSubmit(event) {
       }
     }
   } catch (err) {
+    console.error("Critical Login Error:", err);
     if (errorMsg) {
       errorMsg.style.display = 'block';
-      errorMsg.textContent = '❌ May nangyaring error sa pag-login.';
+      errorMsg.textContent = `❌ May nangyaring error sa pag-login: ${err.message}`;
     }
   }
 }
@@ -419,6 +434,11 @@ function renderDashboard() {
 }
 
 function renderDashboardCharts() {
+  // Ligtas na check kung naka-load ang Chart.js library
+  if (typeof Chart === 'undefined') {
+    console.warn("Chart.js library is not loaded.");
+    return;
+  }
   const ctxSales = document.getElementById('salesTrendChart');
   if (!ctxSales) return;
   if (salesChartInstance) salesChartInstance.destroy();
