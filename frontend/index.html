@@ -206,79 +206,77 @@
 
       <!-- VIEW 2: POINT OF SALE (POS) CHECKOUT -->
       <div id="view-sale" class="view-content">
-        <div class="pos-container">
-          <div class="pos-catalog-section">
-            <div class="card">
-              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                <span class="card-title">🔍 Scan Barcode or Search Variant</span>
-                <button id="camToggleBtn" class="btn btn-primary" onclick="toggleCameraScanner()">📷 Open Live Camera Scanner</button>
-              </div>
+        
+        <!-- 4 SUB-NAVIGATION BUTTONS -->
+        <div class="sale-subnav-bar" style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; flex-wrap: wrap;">
+          <button class="btn btn-primary sale-subtab-btn active" onclick="switchSaleSubView('subview-sales-scan', this)">
+            🏷️ Sales (with barcode / scan)
+          </button>
+          <button class="btn btn-secondary sale-subtab-btn" onclick="switchSaleSubView('subview-charge', this)">
+            📋 Charge (Utang)
+          </button>
+          <button class="btn btn-secondary sale-subtab-btn" onclick="switchSaleSubView('subview-assorted', this)">
+            📦 Assorted (no barcode)
+          </button>
+          <button class="btn btn-secondary sale-subtab-btn" onclick="switchSaleSubView('subview-refund', this)">
+            🔄 Refund
+          </button>
+        </div>
 
-              <div id="interactive-camera-wrapper">
-                <p style="color:#94a3b8; font-size:12px; margin-bottom:8px;">Itapat ang barcode sa harap ng camera...</p>
-                <div id="reader"></div>
-              </div>
-
-              <div class="search-container">
-                <span class="search-icon">🔍</span>
-                <input 
-                  type="text" 
-                  id="saleSearchInput" 
-                  class="search-input" 
-                  placeholder="IPASOK ANG VARIANT CODE, BARCODE, O PART NAME..." 
-                  oninput="renderSaleGrid()"
-                  onkeydown="handleSaleBarcodeKey(event)"
-                />
-              </div>
-
-              <div id="saleCatalogGrid" class="catalog-grid"></div>
-            </div>
-          </div>
-
-          <div class="pos-cart-section">
+        <!-- VIEW 1: SALES (WITH BARCODE / SCAN) - INALIS NA ANG CART -->
+        <div id="subview-sales-scan" class="sale-subview-content" style="display: block;">
+          <div class="card">
             <div class="card-title-bar">
-              <span class="card-title">🛒 Current Order Cart</span>
-              <button class="btn btn-secondary" style="font-size:11px;" onclick="clearCart()">Clear Cart</button>
+              <div class="card-title">🔍 Scan Barcode or Search Item / Variant</div>
+              <button type="button" id="camToggleBtn" class="btn btn-primary" onclick="toggleCameraScanner()">
+                📷 Open Live Camera Scanner
+              </button>
             </div>
 
-            <table class="cart-table">
-              <thead>
-                <tr>
-                  <th>Item / Variant</th>
-                  <th style="text-align:center;">Qty</th>
-                  <th style="text-align:right;">Price</th>
-                  <th style="text-align:right;">Total</th>
-                  <th style="text-align:center;">Action</th>
-                </tr>
-              </thead>
-              <tbody id="cartTableBody">
-                <tr><td colspan="5" style="text-align:center; color:#94a3b8; padding:20px;">Cart is empty. Scan or search a variant item.</td></tr>
-              </tbody>
-            </table>
+            <!-- LIVE CAMERA SCANNER CONTAINER -->
+            <div id="interactive-camera-wrapper">
+              <div id="reader"></div>
+              <p style="color:#cbd5e1; font-size:12px; margin-top:8px;">Itapat ang barcode sa harap ng camera...</p>
+            </div>
 
-            <div class="cart-summary">
-              <div class="cart-summary-row">
-                <span>Total Items:</span>
-                <span id="cartTotalItems">0</span>
-              </div>
-              <div class="cart-summary-row total">
-                <span>Grand Total:</span>
-                <span id="cartGrandTotal">₱0.00</span>
-              </div>
-              <div class="form-group" style="margin-top:12px;">
-                <label for="cashTenderedInput">CASH TENDERED (IBINAYAD):</label>
-                <input type="number" id="cashTenderedInput" placeholder="0.00" step="0.01" oninput="calculateChange()" />
-              </div>
-              <div class="cart-summary-row" style="color:#16a34a; font-weight:800; font-size:16px;">
-                <span>Change (Sukli):</span>
-                <span id="cartChangeAmount">₱0.00</span>
-              </div>
-              <button class="btn btn-success" style="width:100%; height:46px; font-size:16px; margin-top:10px; justify-content:center;" onclick="processCheckout()">
-                💳 COMPLETE TRANSACTION
-              </button>
+            <div class="search-container">
+              <span class="search-icon">🔍</span>
+              <input type="text" id="saleSearchInput" class="search-input" placeholder="SCAN BARCODE OR SEARCH ITEM / OEM / BRAND / VARIANT..." onkeydown="handleSaleBarcodeKey(event)" oninput="renderSaleGrid()" autofocus>
+            </div>
+
+            <div class="catalog-grid" id="saleCatalogGrid">
+              <!-- Dynamically populated variants -->
             </div>
           </div>
         </div>
+
+        <!-- VIEW 2: CHARGE (UTANG) - EMPTY PLACEHOLDER -->
+        <div id="subview-charge" class="sale-subview-content" style="display: none;">
+          <div class="card" style="text-align: center; padding: 40px; color: #64748b;">
+            <div style="font-size: 32px; margin-bottom: 10px;">📋</div>
+            <h3 style="color: #0f172a; margin-bottom: 6px;">Charge (Utang) Module</h3>
+            <p style="font-size: 13px;">Empty muna ang view na ito. Dito natin ilalagay ang mga features para sa Utang transactions.</p>
+          </div>
+        </div>
+
+        <!-- VIEW 3: ASSORTED (NO BARCODE) - EMPTY PLACEHOLDER -->
+        <div id="subview-assorted" class="sale-subview-content" style="display: none;">
+          <div class="card" style="text-align: center; padding: 40px; color: #64748b;">
+            <div style="font-size: 32px; margin-bottom: 10px;">📦</div>
+            <h3 style="color: #0f172a; margin-bottom: 6px;">Assorted Items (No Barcode) Module</h3>
+            <p style="font-size: 13px;">Empty muna ang view na ito. Dito natin ilalagay ang mga piyesang walang barcode at custom pricing.</p>
+          </div>
+        </div>
+
+        <!-- VIEW 4: REFUND - EMPTY PLACEHOLDER -->
+        <div id="subview-refund" class="sale-subview-content" style="display: none;">
+          <div class="card" style="text-align: center; padding: 40px; color: #64748b;">
+            <div style="font-size: 32px; margin-bottom: 10px;">🔄</div>
+            <h3 style="color: #0f172a; margin-bottom: 6px;">Refund & Return Module</h3>
+            <p style="font-size: 13px;">Empty muna ang view na ito. Dito natin ilalagay ang refund at return item logic.</p>
+          </div>
+        </div>
+
       </div>
 
       <!-- VIEW 3: DAILY SALES & RECEIPTS LOG -->
@@ -815,6 +813,63 @@
           <button type="submit" class="btn btn-success" style="width:100%; height:42px; justify-content:center; margin-top:10px;">
             ➕ Save Restock Quantity
           </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- DIRECT SALE CONFIRMATION MODAL (WITH ITEM GALLERY & LIGHTBOX VIEW) -->
+  <div id="confirmSaleModal" class="modal-overlay" onclick="if(event.target.id==='confirmSaleModal') closeConfirmSaleModal()">
+    <div class="modal-card" style="max-width: 480px;">
+      <div class="modal-header">
+        <div>
+          <h3>⚡ CONFIRM DIRECT SALE</h3>
+          <span id="confirmSaleSubTitle" class="modal-subtitle">ITEM: ---</span>
+        </div>
+        <button class="modal-close-btn" onclick="closeConfirmSaleModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="confirmSaleForm" onsubmit="confirmDirectSale(event)">
+          <input type="hidden" id="saleBatchCodeInput">
+          
+          <!-- ITEM IMAGES GALLERY THUMBNAILS (CLICK TO OPEN LIGHTBOX) -->
+          <div id="confirmImageGallery" style="display: flex; gap: 8px; overflow-x: auto; margin-bottom: 14px; padding-bottom: 4px;"></div>
+
+          <div class="info-profile-grid" style="margin-bottom: 16px;">
+            <div class="profile-item">
+              <div class="profile-label">Variant Code / Barcode</div>
+              <div id="confirmBatchCode" class="profile-value">---</div>
+            </div>
+            <div class="profile-item">
+              <div class="profile-label">Available Stock</div>
+              <div id="confirmStock" class="profile-value">---</div>
+            </div>
+            <div class="profile-item full-width">
+              <div class="profile-label">Supplier</div>
+              <div id="confirmSupplier" class="profile-value">---</div>
+            </div>
+          </div>
+
+          <!-- EDITABLE INPUTS: SELLING PRICE & QTY | READONLY: TOTAL AMOUNT -->
+          <div class="form-row">
+            <div class="form-group">
+              <label>Selling Price (₱)</label>
+              <input type="number" step="0.01" id="salePriceInput" required oninput="updateConfirmTotalCost()">
+            </div>
+            <div class="form-group">
+              <label>Quantity to Sell</label>
+              <input type="number" id="saleQtyInput" min="1" value="1" required oninput="updateConfirmTotalCost()">
+            </div>
+            <div class="form-group">
+              <label>Total Amount (₱)</label>
+              <input type="text" id="saleTotalAmountDisplay" readonly style="background:#f1f5f9; font-weight:bold; color:#16a34a; font-size:16px;">
+            </div>
+          </div>
+
+          <div style="display:flex; gap:10px; margin-top:20px;">
+            <button type="button" class="btn btn-secondary" style="flex:1; justify-content:center;" onclick="closeConfirmSaleModal()">❌ Cancel</button>
+            <button type="submit" class="btn btn-success" style="flex:1.5; justify-content:center; padding:12px;">✅ Confirm & Log Sale</button>
+          </div>
         </form>
       </div>
     </div>

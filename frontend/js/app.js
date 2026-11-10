@@ -1,10 +1,7 @@
 /* ======================================================================
    DAIHO AUTOPARTS POS — PRODUCTION FRONTEND APPLICATION SCRIPT
-   ----------------------------------------------------------------------
-   Production Ready: Initialized with empty arrays. Data is fetched dynamically
-   from the backend API post-authentication.
    ====================================================================== */
-
+renderSaleGrid()
 /* SECURITY & UTILITY HELPERS */
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, char => ({
@@ -24,12 +21,12 @@ function getTodayString() {
   return `${year}-${month}-${day}`;
 }
 
-/* GLOBAL APPLICATION STATE (PRODUCTION: EMPTY INITIAL ARRAYS) */
+/* GLOBAL APPLICATION STATE */
 let loggedInUser = null;
-let systemUsers = [];       // Maglo-load mula sa /api/users
-let masterItems = [];       // Maglo-load mula sa /api/masters
-let inventoryBatches = [];  // Maglo-load mula sa /api/variants
-let salesTransactions = []; // Maglo-load mula sa /api/sales
+let systemUsers = [];       
+let masterItems = [];       
+let inventoryBatches = [];  
+let salesTransactions = []; 
 
 let cart = [];
 let salesChartInstance = null;
@@ -55,9 +52,149 @@ let isCameraStarting = false;
 let lastScannedCode = "";
 let lastScanTime = 0;
 
-/* ========================================== */
-/* BACKEND DATA SYNCHRONIZATION               */
-/* ========================================== */
+/* DIRECT SALE CONFIRMATION MODAL LOGIC */
+/* DIRECT SALE CONFIRMATION MODAL LOGIC */
+let activeSelectedBatchForSale = null;
+
+function openConfirmSaleModal(batchCode) {
+  const batch = inventoryBatches.find(b => (b.code || b.variant_code) === batchCode);
+  if (!batch) return;
+
+  if (Number(batch.stock) <= 0) {
+    alert('⚠️ Out of stock na ang item/variant na ito!');
+    return;
+  }
+
+  const mId = batch.masterId || batch.master_id;
+  const master = masterItems.find(m => Number(m.id) === Number(mId)) || { partName: 'ITEM', part_name: 'ITEM', oem: '' };
+  activeSelectedBatchForSale = batch;
+
+  document.getElementById('saleBatchCodeInput').value = batch.code || batch.variant_code;
+  document.getElementById('confirmSaleSubTitle').textContent = `${master.partName || master.part_name} (${master.oem})`;
+  document.getElementById('confirmBatchCode').textContent = batch.code || batch.variant_code;
+  document.getElementById('confirmStock').textContent = `${batch.stock} pcs`;
+  document.getElementById('confirmSupplier').textContent = batch.supplier;
+
+  // 🖼️ LOAD ITEM IMAGES & ATTACH LIGHTBOX CLICK EVENTS
+  const images = master.images || master.image_urls || [];
+  modalActiveImages = images; // Isine-set sa global array para sa openLightbox()
+
+  const galleryEl = document.getElementById('confirmImageGallery');
+  if (galleryEl) {
+    if (images.length > 0) {
+      galleryEl.style.display = 'flex';
+      galleryEl.innerHTML = images.map((img, idx) => `
+        <img src="${escapeHtml(img)}" 
+             style="width: 64px; height: 64px; object-fit: cover; border-radius: 6px; cursor: pointer; border: 2px solid #2563eb; transition: transform 0.2s;" 
+             onclick="openLightbox(${idx})" 
+             onmouseover="this.style.transform='scale(1.05)'" 
+             onmouseout="this.style.transform='scale(1)'" 
+             alt="Item Photo ${idx + 1}" 
+             title="I-click para palakihin" />
+      `).join('');
+    } else {
+      galleryEl.style.display = 'none';
+      galleryEl.innerHTML = '';
+    }
+  }
+
+  // INITIAL EDITABLE VALUES
+  const defaultPrice = Number(batch.price || 0);
+  document.getElementById('salePriceInput').value = defaultPrice.toFixed(2);
+  document.getElementById('saleQtyInput').value = 1;
+  document.getElementById('saleQtyInput').max = batch.stock;
+
+  updateConfirmTotalCost();
+
+  document.getElementById('confirmSaleModal').style.display = 'flex';
+  setTimeout(() => document.getElementById('salePriceInput').focus(), 100);
+}
+
+function closeConfirmSaleModal() {
+  document.getElementById('confirmSaleModal').style.display = 'none';
+  activeSelectedBatchForSale = null;
+}
+
+// AUTO-RECALCULATE TOTAL AMOUNT MULA SA SELLING PRICE AT QUANTITY
+function updateConfirmTotalCost() {
+  const price = parseFloat(document.getElementById('salePriceInput').value) || 0;
+  const qty = parseInt(document.getElementById('saleQtyInput').value) || 1;
+  const total = price * qty;
+  document.getElementById('saleTotalAmountDisplay').value = `₱${total.toFixed(2)}`;
+}
+
+async function confirmDirectSale(event) {
+  event.preventDefault();
+  if (!activeSelectedBatchForSale) return;
+
+  const batch = activeSelectedBatchForSale;
+  const mId = batch.masterId || batch.master_id;
+  const master = masterItems.find(m => Number(m.id) === Number(mId)) || { partName: 'ITEM', part_name: 'ITEM', oem: '', brand: '' };
+  
+  const sellingPrice = parseFloat(document.getElementById('salePriceInput').value) || 0;
+  const qty = parseInt(document.getElementById('saleQtyInput').value) || 1;
+  const totalAmount = sellingPrice * qty;
+  const totalCost = Number(batch.cost) * qty;
+
+  if (qty > Number(batch.stock)) {
+    alert(`Hindi pwedeng lumagpas sa available stock (${batch.stock} pcs)!`);
+    return;
+  }
+
+  const salePayload = {
+    batch_code: batch.code || batch.variant_code,
+    qty: qty,
+    price: sellingPrice,
+    cost: Number(batch.cost),
+    cash_tendered: totalAmount,
+    change_amount: 0
+  };
+
+  try {
+    const res = await apiRequest('/sales', 'POST', salePayload);
+    batch.stock = Number(batch.stock) - qty;
+
+    alert(`✅ Direct Sale Confirmed & Logged to DB!\n--------------------\nItem: ${master.partName || master.part_name}\nUnit Price: ₱${sellingPrice.toFixed(2)}\nQty: ${qty}\nTotal Amount: ₱${totalAmount.toFixed(2)}`);
+
+    closeConfirmSaleModal();
+    await loadProductionDataFromBackend();
+    renderSaleGrid();
+    if (typeof renderSalesLog === 'function') renderSalesLog();
+    if (typeof renderDashboard === 'function') renderDashboard();
+    if (typeof renderReportsModule === 'function') renderReportsModule();
+  } catch (err) {
+    console.warn("API Offline Fallback for Sale:", err);
+    batch.stock = Number(batch.stock) - qty;
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    salesTransactions.unshift({
+      id: "TXN-" + Math.floor(100000 + Math.random() * 900000),
+      date: getTodayString(),
+      time: timeStr,
+      items: [{
+        batchCode: batch.code || batch.variant_code,
+        partName: master.partName || master.part_name,
+        oem: master.oem,
+        brand: master.brand,
+        qty: qty,
+        cost: Number(batch.cost),
+        price: sellingPrice
+      }],
+      grandTotal: totalAmount,
+      totalCost: totalCost,
+      totalProfit: totalAmount - totalCost,
+      cash: totalAmount,
+      change: 0
+    });
+
+    alert(`✅ Sale Confirmed (Offline Mode)\nTotal: ₱${totalAmount.toFixed(2)}`);
+    closeConfirmSaleModal();
+    renderSaleGrid();
+    renderSalesLog();
+  }
+}
+
+/* BACKEND DATA SYNCHRONIZATION */
 async function loadProductionDataFromBackend() {
   try {
     const [mastersRes, variantsRes, salesRes, usersRes] = await Promise.all([
@@ -75,13 +212,10 @@ async function loadProductionDataFromBackend() {
     console.log("✅ Production data successfully loaded from database.");
   } catch (error) {
     console.error("❌ Error loading production data:", error);
-    alert("Nabigong makuha ang data mula sa server. Suriin ang koneksyon.");
   }
 }
 
-/* ========================================== */
-/* AUTHENTICATION & LOGIN LOGIC               */
-/* ========================================== */
+/* AUTHENTICATION & LOGIN LOGIC */
 function togglePasswordVisibility() {
   const pwdInput = document.getElementById('loginPasswordInput');
   if (pwdInput) {
@@ -96,7 +230,6 @@ async function handleLoginSubmit(event) {
   const errorMsg = document.getElementById('loginErrorMsg');
 
   try {
-    // Production API call for authentication (fallback to local mock if testing offline)
     let userMatch = null;
     try {
       const authRes = await apiRequest('/auth/login', 'POST', { username: userIn, password: passIn });
@@ -105,7 +238,6 @@ async function handleLoginSubmit(event) {
         if (authRes.token) localStorage.setItem('pos_token', authRes.token);
       }
     } catch (apiErr) {
-      // Fallback fallback kung sakaling local testing
       userMatch = systemUsers.find(u => u.username.toUpperCase() === userIn && u.password === passIn);
     }
 
@@ -119,12 +251,10 @@ async function handleLoginSubmit(event) {
       const loginForm = document.getElementById('loginForm');
       if (loginForm) loginForm.reset();
 
-      document.getElementById('activeUserFullName').textContent = loggedInUser.fullName;
+      document.getElementById('activeUserFullName').textContent = loggedInUser.fullName || loggedInUser.full_name;
       document.getElementById('activeUserRoleBadge').textContent = loggedInUser.role;
 
-      // 🔄 I-load ang totoong data mula sa database
       await loadProductionDataFromBackend();
-
       applyUserRoleRestrictions();
       switchView('view-dashboard', document.querySelectorAll('.nav-item')[0]);
     } else {
@@ -156,34 +286,24 @@ function applyUserRoleRestrictions() {
   if (!loggedInUser) return;
 
   if (loggedInUser.role === 'CASHIER') {
-    // CASHIER: POS / Checkout lamang ang makikita (index 1)
     navItems.forEach((item, idx) => {
       item.style.display = idx === 1 ? 'flex' : 'none';
     });
     switchView('view-sale', navItems[1]);
   } else if (loggedInUser.role === 'MANAGER') {
-    // MANAGER: Lahat makikita MALIBAN sa User Management (index 7 o kung saan man nakaposisyon ang view-users)
     navItems.forEach((item, idx) => {
-      // Palitan ang index number batay sa eksaktong posisyon ng 'view-users' sa iyong sidebar menu
-      if (idx === 7) { 
-        item.style.display = 'none'; // Nakatago ang User Management para sa Manager
-      } else {
-        item.style.display = 'flex'; // Kasama ang Suppliers, Central Inventory, atbp.
-      }
+      if (idx === 7) item.style.display = 'none';
+      else item.style.display = 'flex';
     });
   } else {
-    // ADMIN: Lahat ng module ay makikita at naa-access
     navItems.forEach(item => item.style.display = 'flex');
   }
 }
 
-/* ========================================== */
-/* NAVIGATION & VIEW SWITCHER                 */
-/* ========================================== */
+/* NAVIGATION & VIEW SWITCHER */
 function switchView(viewId, element) {
   if (!loggedInUser) return;
 
-  // Role restriction validation
   if (loggedInUser.role === 'CASHIER' && viewId !== 'view-sale') {
     alert('Restricted access: Cashier can only access POS Checkout.');
     return;
@@ -229,15 +349,13 @@ function switchView(viewId, element) {
   if (viewId === 'view-users') renderUsersTable();
 }
 
-/* ========================================== */
-/* DASHBOARD RENDER & CHARTS                  */
-/* ========================================== */
+/* DASHBOARD RENDER & CHARTS */
 function renderDashboard() {
   const todayStr = getTodayString();
   const todayTxns = salesTransactions.filter(t => t.date === todayStr);
 
-  const todayGross = todayTxns.reduce((sum, t) => sum + (Number(t.grandTotal) || 0), 0);
-  const todayProfit = todayTxns.reduce((sum, t) => sum + (Number(t.totalProfit) || 0), 0);
+  const todayGross = todayTxns.reduce((sum, t) => sum + (Number(t.grandTotal || t.grand_total) || 0), 0);
+  const todayProfit = todayTxns.reduce((sum, t) => sum + (Number(t.totalProfit || t.total_profit) || 0), 0);
 
   document.getElementById('dashTodaySales').textContent = `₱${todayGross.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
   document.getElementById('dashTodayProfit').textContent = `₱${todayProfit.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
@@ -253,7 +371,6 @@ function renderDashboard() {
   document.getElementById('dashAssetValuation').textContent = `₱${assetValuation.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
   document.getElementById('dashTotalItemsCount').textContent = `${masterItems.length} Masters | ${inventoryBatches.length} Variants`;
 
-  // Reorder Table
   const reorderBody = document.getElementById('dashReorderTableBody');
   if (reorderBody) {
     reorderBody.innerHTML = '';
@@ -279,7 +396,6 @@ function renderDashboard() {
     }
   }
 
-  // Recent Sales
   const recentBody = document.getElementById('dashRecentSalesBody');
   if (recentBody) {
     recentBody.innerHTML = '';
@@ -378,9 +494,7 @@ function renderDashboardCharts() {
   });
 }
 
-/* ========================================== */
-/* MASTER ITEM REGISTRATION & IMAGE UPLOAD    */
-/* ========================================== */
+/* MASTER ITEM REGISTRATION */
 function handleImageUpload(event) {
   const files = Array.from(event.target.files);
   if (currentUploadedImages.length + files.length > 10) {
@@ -531,61 +645,21 @@ document.getElementById('masterForm')?.addEventListener('submit', async function
   };
 
   try {
-    // I-save sa backend API
     const response = await apiRequest('/masters', 'POST', newMasterPayload);
     if (response) {
-      await loadProductionDataFromBackend(); // I-refresh ang state mula sa DB
+      await loadProductionDataFromBackend();
       renderStep1Grid();
       this.reset();
       currentUploadedImages = [];
       renderFormImagePreviews();
-      alert('Master Item saved successfully to database! Pwede nang magdagdag ng Supplier Variant.');
+      alert('Master Item saved successfully to database!');
     }
   } catch (err) {
     console.error("Error saving master item:", err);
-    // Fallback kung offline testing
-    const fallbackItem = {
-      id: masterItems.length + 1,
-      oem: newMasterPayload.oem,
-      brand: newMasterPayload.brand,
-      partName: newMasterPayload.part_name,
-      make: newMasterPayload.make,
-      model: newMasterPayload.model,
-      year: newMasterPayload.year,
-      engine: newMasterPayload.engine,
-      unitType: newMasterPayload.unit_type,
-      pcsPerBox: newMasterPayload.pcs_per_box,
-      sizePerPc: newMasterPayload.size_per_pc,
-      position: newMasterPayload.position,
-      origin: newMasterPayload.origin,
-      description: newMasterPayload.description,
-      images: newMasterPayload.images,
-      icon: "⚙️"
-    };
-    masterItems.push(fallbackItem);
-    renderStep1Grid();
-    this.reset();
-    currentUploadedImages = [];
-    renderFormImagePreviews();
-    alert('Master Item saved locally (offline mode fallback).');
   }
 });
 
-/* ========================================== */
-/* INVENTORY & VARIANT CODING                 */
-/* ========================================== */
-function generateItemVariantCode(masterId) {
-  const prefix = `IT${masterId}-COD-`;
-  const matchedVariants = inventoryBatches.filter(b => Number(b.masterId || b.master_id) === Number(masterId));
-  const maxSeq = matchedVariants.reduce((max, batch) => {
-    const codeStr = batch.code || batch.variant_code || '';
-    if (!codeStr.startsWith(prefix)) return max;
-    const seq = Number(codeStr.slice(prefix.length));
-    return Number.isInteger(seq) ? Math.max(max, seq) : max;
-  }, 0);
-  return `${prefix}${String(maxSeq + 1).padStart(3, '0')}`;
-}
-
+/* INVENTORY & RESTOCK */
 function openQuickAddMasterModal() {
   switchView('view-master', document.querySelectorAll('.nav-item')[4]);
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -605,7 +679,7 @@ function openRestockModal(batchCode) {
   const batch = inventoryBatches.find(b => (b.code || b.variant_code) === batchCode);
   if (!batch) return;
   const mId = batch.masterId || batch.master_id;
-  const master = masterItems.find(m => Number(m.id) === Number(mId)) || { partName: 'ITEM' };
+  const master = masterItems.find(m => Number(m.id) === Number(mId)) || { partName: 'ITEM', part_name: 'ITEM' };
 
   document.getElementById('restockBatchCodeInput').value = batch.code || batch.variant_code;
   document.getElementById('restockBatchSub').textContent = `${batch.code || batch.variant_code} | ${master.partName || master.part_name} (${batch.supplier})`;
@@ -636,7 +710,9 @@ document.getElementById('restockForm').addEventListener('submit', async function
   try {
     await apiRequest(`/variants/${batchCode}/restock`, 'PATCH', { addQty });
     closeRestockModal();
-    await loadInventoryVariants();
+    // NA-FIX NA ANG FUNCTION NAME DITO:
+    await loadProductionDataFromBackend();
+    renderInventoryGrid();
     alert(`✅ Matagumpay na naidagdag ang +${addQty} stock sa database para sa ${batchCode}!`);
   } catch (err) {
     alert(`❌ Nabigong mag-restock: ${err.message}`);
@@ -686,7 +762,9 @@ document.getElementById('quickCodingForm').addEventListener('submit', async func
     });
 
     closeQuickCodingModal();
-    await loadInventoryVariants();
+    // NA-FIX NA ANG FUNCTION NAME DITO:
+    await loadProductionDataFromBackend();
+    renderInventoryGrid();
     alert('✅ Matagumpay na naidagdag ang bagong variant sa database!');
   } catch (err) {
     alert(`❌ Nabigong magdagdag ng variant: ${err.message}`);
@@ -813,9 +891,7 @@ function toggleInventoryBatchPanel(panelId) {
   }
 }
 
-/* ========================================== */
-/* ITEM MODAL & LIGHTBOX                      */
-/* ========================================== */
+/* ITEM MODAL & LIGHTBOX */
 function openItemModal(index) {
   const item = masterItems[index];
   if (!item) return;
@@ -934,9 +1010,26 @@ function closeLightboxOnOverlay(e) {
   if (e.target.id === 'lightboxOverlay') closeLightbox();
 }
 
-/* ========================================== */
-/* POS CHECKOUT & CAMERA SCANNING             */
-/* ========================================== */
+/* POS CHECKOUT & CAMERA SCANNING */
+function switchSaleSubView(subViewId, btnElement) {
+  document.querySelectorAll('.sale-subview-content').forEach(view => {
+    view.style.display = 'none';
+  });
+
+  document.querySelectorAll('.sale-subtab-btn').forEach(btn => {
+    btn.classList.remove('btn-primary', 'active');
+    btn.classList.add('btn-secondary');
+  });
+
+  const targetView = document.getElementById(subViewId);
+  if (targetView) targetView.style.display = 'block';
+
+  if (btnElement) {
+    btnElement.classList.remove('btn-secondary');
+    btnElement.classList.add('btn-primary', 'active');
+  }
+}
+
 function toggleCameraScanner() {
   if (isCameraActive) stopCameraScanner();
   else startCameraScanner();
@@ -1000,54 +1093,114 @@ function stopCameraScanner() {
 
 function handleCameraScanSuccess(scannedCode) {
   const query = scannedCode.trim().toUpperCase();
-  const batch = inventoryBatches.find(b => {
-    const bCode = (b.code || b.variant_code || '').toUpperCase();
-    const bBar = (b.barcode || '').toUpperCase();
-    return bBar === query || bCode === query;
-  });
-  if (batch) addToCart(batch.code || batch.variant_code);
-  else alert(`Item not found for barcode: ${scannedCode}`);
+  const batch = inventoryBatches.find(b => 
+    (b.barcode || '').toUpperCase() === query || (b.code || b.variant_code || '').toUpperCase() === query
+  );
+
+  if (batch) {
+    openConfirmSaleModal(batch.code || batch.variant_code);
+  } else {
+    alert(`Hindi mahanap ang item para sa Barcode: ${scannedCode}`);
+  }
 }
 
 function renderSaleGrid() {
   const grid = document.getElementById('saleCatalogGrid');
-  const searchInput = document.getElementById('saleSearchInput');
   if (!grid) return;
-  const search = searchInput ? searchInput.value.trim().toUpperCase() : '';
+  
+  const search = (document.getElementById('saleSearchInput')?.value || '').trim().toUpperCase();
   grid.innerHTML = '';
 
-  let matchingVariants = search === "" ? inventoryBatches.filter(b => Number(b.stock) === 0) : inventoryBatches.filter(batch => {
-    const mId = batch.masterId || batch.master_id;
-    const master = masterItems.find(m => Number(m.id) === Number(mId));
-    if (!master) return false;
-    const bCode = (batch.code || batch.variant_code || '').toUpperCase();
-    const oem = (master.oem || '').toUpperCase();
-    const pName = (master.partName || master.part_name || '').toUpperCase();
-    return bCode.includes(search) || oem.includes(search) || pName.includes(search);
-  });
+  let matchingVariants = [];
 
+  if (search === "") {
+    // ⚠️ AUTOMATIC DISPLAY: Isama ang parehong OUT OF STOCK (stock === 0) at LOW STOCK (stock <= lowStockLimit)
+    matchingVariants = inventoryBatches.filter(b => {
+      const currentStock = Number(b.stock || 0);
+      const limit = Number(b.lowStockLimit || b.low_stock_limit || 0);
+      return currentStock === 0 || currentStock <= limit;
+    });
+
+    if (matchingVariants.length === 0) {
+      grid.innerHTML = `
+        <div class="empty-stock-banner">
+          <div class="empty-stock-icon">✅</div>
+          <div class="empty-stock-title">ALL ITEMS HAVE SUFFICIENT STOCK!</div>
+          <div class="empty-stock-sub">
+            Walang low stock o out of stock na item. Mag-type o mag-scan ng barcode para mag-checkout.
+          </div>
+        </div>
+      `;
+      return;
+    }
+  } else {
+    // SEARCH FILTER: Kapag may tina-type sa search input
+    matchingVariants = inventoryBatches.filter(batch => {
+      const mId = batch.masterId || batch.master_id;
+      const master = masterItems.find(m => Number(m.id) === Number(mId));
+      if (!master) return false;
+
+      const bCode = (batch.code || batch.variant_code || '').toUpperCase();
+      const bBarcode = (batch.barcode || bCode).toUpperCase();
+      const oem = (master.oem || '').toUpperCase();
+      const pName = (master.partName || master.part_name || '').toUpperCase();
+      const brand = (master.brand || '').toUpperCase();
+
+      return bCode.includes(search) || bBarcode.includes(search) || oem.includes(search) || pName.includes(search) || brand.includes(search);
+    });
+
+    if (matchingVariants.length === 0) {
+      grid.innerHTML = `
+        <div class="empty-stock-banner" style="border-color:#cbd5e1; background:#ffffff;">
+          <div class="empty-stock-icon" style="background-color:#f1f5f9; color:#64748b;">🔍</div>
+          <div class="empty-stock-title" style="color:#0f172a;">NO MATCHING VARIANTS FOUND</div>
+        </div>
+      `;
+      return;
+    }
+  }
+
+  // RENDER CARDS FOR MATCHING / CRITICAL VARIANTS
   matchingVariants.forEach(batch => {
     const mId = batch.masterId || batch.master_id;
     const master = masterItems.find(m => Number(m.id) === Number(mId));
     if (!master) return;
+
     const card = document.createElement('div');
     card.className = 'item-card';
     const bCode = batch.code || batch.variant_code;
-    card.onclick = () => addToCart(bCode);
+    card.onclick = () => openConfirmSaleModal(bCode);
 
+    const stockNum = Number(batch.stock || 0);
+    const limitNum = Number(batch.lowStockLimit || batch.low_stock_limit || 0);
+    
+    let badgeClass = 'stock-green';
+    let badgeText = `STOCK: ${stockNum}`;
+    
+    if (stockNum === 0) {
+      badgeClass = 'stock-red';
+      badgeText = '0 OUT OF STOCK';
+    } else if (stockNum <= limitNum) {
+      badgeClass = 'stock-orange';
+      badgeText = `⚠️ ${stockNum} LOW STOCK`;
+    }
+
+    const images = master.images || master.image_urls || [];
+    const hasImages = images.length > 0;
     const pName = master.partName || master.part_name || 'ITEM';
-    const stockVal = Number(batch.stock || 0);
 
     card.innerHTML = `
       <div>
-        <div class="card-img-placeholder">${renderCardMedia(master)}</div>
+        <div class="card-img-placeholder ${hasImages ? 'zoomable' : ''}" style="height:70px;">
+          ${renderCardMedia(master)}
+        </div>
         <div class="item-title">${escapeHtml(pName)} - ${escapeHtml(master.oem)}</div>
-        <div class="item-oem">${escapeHtml(master.brand)}</div>
-        <div class="item-subtitle">VARIANT: ${escapeHtml(bCode)}</div>
+        <div class="item-oem">${escapeHtml(master.brand)} | VEHICLE : ${escapeHtml(master.make || '')} ${escapeHtml(master.model || '')}</div>
+        <div class="item-subtitle">VARIANT: ${escapeHtml(bCode)} | ${escapeHtml(batch.supplier)}</div>
       </div>
       <div class="card-footer">
         <div class="item-price">₱${Number(batch.price || 0).toFixed(2)}</div>
-        <span class="stock-badge ${stockVal > 0 ? 'stock-green' : 'stock-red'}">${stockVal === 0 ? '0 OUT' : 'STOCK: ' + stockVal}</span>
+        <span class="stock-badge ${badgeClass}">${badgeText}</span>
       </div>
     `;
     grid.appendChild(card);
@@ -1058,180 +1211,21 @@ function handleSaleBarcodeKey(event) {
   if (event.key === 'Enter') {
     const query = event.target.value.trim().toUpperCase();
     if (!query) return;
-    const batch = inventoryBatches.find(b => {
-      const bCode = (b.code || b.variant_code || '').toUpperCase();
-      const bBar = (b.barcode || '').toUpperCase();
-      return bBar === query || bCode === query;
-    });
-    if (batch) {
-      addToCart(batch.code || batch.variant_code);
+
+    const exactBatch = inventoryBatches.find(b => 
+      (b.barcode || '').toUpperCase() === query || (b.code || b.variant_code || '').toUpperCase() === query
+    );
+
+    if (exactBatch) {
+      openConfirmSaleModal(exactBatch.code || exactBatch.variant_code);
       event.target.value = '';
-      renderSaleGrid();
+    } else {
+      alert(`Hindi mahanap ang item para sa Barcode/Code: "${query}"`);
     }
   }
 }
 
-function addToCart(batchCode) {
-  const batch = inventoryBatches.find(b => (b.code || b.variant_code) === batchCode);
-  if (!batch || Number(batch.stock) <= 0) {
-    alert('Out of stock na ang variant na ito!');
-    return;
-  }
-  const existing = cart.find(i => i.batchCode === batchCode);
-  const stockLimit = Number(batch.stock);
-  if (existing) {
-    if (existing.qty + 1 > stockLimit) {
-      alert(`Hindi pwedeng lumagpas sa available stock (${stockLimit})!`);
-      return;
-    }
-    existing.qty += 1;
-  } else {
-    const mId = batch.masterId || batch.master_id;
-    const master = masterItems.find(m => Number(m.id) === Number(mId));
-    cart.push({
-      batchCode: batch.code || batch.variant_code,
-      partName: master ? (master.partName || master.part_name) : 'ITEM',
-      oem: master ? master.oem : '',
-      price: Number(batch.price || 0),
-      cost: Number(batch.cost || 0),
-      qty: 1,
-      maxStock: stockLimit
-    });
-  }
-  updateCartUI();
-}
-
-function updateCartQty(batchCode, delta) {
-  const item = cart.find(i => i.batchCode === batchCode);
-  if (!item) return;
-  const newQty = item.qty + delta;
-  if (newQty > item.maxStock) {
-    alert(`Maximum available stock is ${item.maxStock}`);
-    return;
-  }
-  if (newQty <= 0) removeFromCart(batchCode);
-  else {
-    item.qty = newQty;
-    updateCartUI();
-  }
-}
-
-function removeFromCart(batchCode) {
-  cart = cart.filter(i => i.batchCode !== batchCode);
-  updateCartUI();
-}
-
-function clearCart() {
-  cart = [];
-  updateCartUI();
-}
-
-function updateCartUI() {
-  const tbody = document.getElementById('cartTableBody');
-  if (!tbody) return;
-  tbody.innerHTML = '';
-  let totalItems = 0, grandTotal = 0;
-
-  if (cart.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color:#94a3b8; padding:20px;">Cart is empty.</td></tr>`;
-  } else {
-    cart.forEach(item => {
-      const itemTotal = item.price * item.qty;
-      totalItems += item.qty;
-      grandTotal += itemTotal;
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td><strong>${escapeHtml(item.partName)}</strong><br><small>${escapeHtml(item.batchCode)}</small></td>
-        <td style="text-align:center;">
-          <button class="cart-qty-btn" onclick="updateCartQty('${item.batchCode}', -1)">-</button>
-          <span style="margin:0 4px; font-weight:bold;">${item.qty}</span>
-          <button class="cart-qty-btn" onclick="updateCartQty('${item.batchCode}', 1)">+</button>
-        </td>
-        <td style="text-align:right;">₱${item.price.toFixed(2)}</td>
-        <td style="text-align:right; font-weight:bold;">₱${itemTotal.toFixed(2)}</td>
-        <td style="text-align:center;"><button class="btn btn-danger" style="font-size:10px; padding:2px 6px;" onclick="removeFromCart('${item.batchCode}')">&times;</button></td>
-      `;
-      tbody.appendChild(tr);
-    });
-  }
-
-  document.getElementById('cartTotalItems').textContent = totalItems;
-  document.getElementById('cartGrandTotal').textContent = `₱${grandTotal.toFixed(2)}`;
-  calculateChange();
-}
-
-function calculateChange() {
-  const rawCash = document.getElementById('cashTenderedInput').value.trim();
-  const cash = rawCash === '' ? 0 : Number(rawCash);
-  const grandTotal = cart.reduce((sum, item) => sum + (item.price * item.qty), 0);
-  const output = document.getElementById('cartChangeAmount');
-  if (!output) return;
-  if (cash >= grandTotal) output.textContent = `₱${(cash - grandTotal).toFixed(2)}`;
-  else output.textContent = `Due: ₱${(grandTotal - cash).toFixed(2)}`;
-}
-
-async function processCheckout() {
-  if (cart.length === 0) {
-    alert('Walang laman ang Cart!');
-    return;
-  }
-  const cashInput = document.getElementById('cashTenderedInput').value.trim();
-  const cash = cashInput === '' ? NaN : Number(cashInput);
-  const grandTotal = cart.reduce((sum, i) => sum + (i.price * i.qty), 0);
-
-  if (isNaN(cash) || cash < grandTotal) {
-    alert('Kulang o invalid ang ibinayad na Cash!');
-    return;
-  }
-
-  const totalCost = cart.reduce((sum, i) => sum + (i.cost * i.qty), 0);
-  const checkoutPayload = {
-    items: cart.map(i => ({
-      batchCode: i.batchCode,
-      qty: i.qty,
-      price: i.price,
-      cost: i.cost
-    })),
-    grandTotal,
-    totalCost,
-    totalProfit: grandTotal - totalCost,
-    cash,
-    change: cash - grandTotal
-  };
-
-  try {
-    const res = await apiRequest('/sales/checkout', 'POST', checkoutPayload);
-    await loadProductionDataFromBackend();
-    alert(`✅ Transaction Complete!\nGrand Total: ₱${grandTotal.toFixed(2)}\nChange: ₱${Number(res.change || checkoutPayload.change).toFixed(2)}`);
-  } catch (err) {
-    console.warn("Checkout API offline fallback", err);
-    cart.forEach(item => {
-      const batch = inventoryBatches.find(b => (b.code || b.variant_code) === item.batchCode);
-      if (batch) batch.stock = Number(batch.stock) - item.qty;
-    });
-    salesTransactions.unshift({
-      id: `TXN-${Date.now().toString().slice(-6)}`,
-      date: getTodayString(),
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      items: [...cart],
-      grandTotal,
-      totalCost,
-      totalProfit: grandTotal - totalCost,
-      cash,
-      change: cash - grandTotal
-    });
-    alert(`✅ Transaction Complete (Offline Mode)\nGrand Total: ₱${grandTotal.toFixed(2)}\nChange: ₱${(cash - grandTotal).toFixed(2)}`);
-  }
-
-  clearCart();
-  document.getElementById('cashTenderedInput').value = '';
-  renderSaleGrid();
-  renderDashboard();
-}
-
-/* ========================================== */
-/* SALES LOG & REPORTS                        */
-/* ========================================== */
+/* SALES LOG & REPORTS */
 function renderSalesLog() {
   const selectedDate = document.getElementById('salesDateFilter').value || getTodayString();
   const tbody = document.getElementById('salesLogTableBody');
@@ -1447,18 +1441,18 @@ function renderDailyReport() {
   }
   document.getElementById('dyGrossSales').textContent = `₱${dySales.toFixed(2)}`;
   document.getElementById('dyTotalCost').textContent = `₱${dyCost.toFixed(2)}`;
-  document.getElementById('dyNetProfit').textContent, document.getElementById('dyNetProfit').textContent = `₱${dyProfit.toFixed(2)}`;
+  // INAYOS NA ANG SYNTAX ERROR DITO:
+  document.getElementById('dyNetProfit').textContent = `₱${dyProfit.toFixed(2)}`;
 }
 
-/* ========================================== */
-/* SUPPLIER MANAGEMENT                        */
-/* ========================================== */
+/* SUPPLIER MANAGEMENT */
 let registeredSuppliers = [];
 
 async function renderSuppliersTable() {
   try {
     registeredSuppliers = await apiRequest('/suppliers', 'GET');
     const tbody = document.getElementById('suppliersTableBody');
+    if (!tbody) return;
     tbody.innerHTML = '';
 
     if (registeredSuppliers.length === 0) {
@@ -1533,9 +1527,7 @@ function updateSupplierDropdowns() {
   if (currentVal) selectEl.value = currentVal;
 }
 
-/* ========================================== */
-/* USER MANAGEMENT                            */
-/* ========================================== */
+/* USER MANAGEMENT */
 function renderUsersTable() {
   const tbody = document.getElementById('usersTableBody');
   if (!tbody) return;
@@ -1575,13 +1567,11 @@ async function handleRegisterUserSubmit(event) {
 
   try {
     const response = await apiRequest('/users', 'POST', { fullName, username, password, role });
-    
     alert(`✅ Bagong account para kay ${response.full_name || fullName} ay matagumpay na nairehistro!`);
-    
     document.getElementById('userRegForm').reset();
+    await loadProductionDataFromBackend();
     renderUsersTable();
   } catch (err) {
-    // Ipinapakita ang eksaktong mensahe ng error galing sa backend (hal. kapag may kaparehong username)
     alert(`❌ Nabigong magrehistro ng user: ${err.message}`);
   }
 }
@@ -1599,8 +1589,9 @@ async function deleteSystemUser(userId) {
   }
 }
 
+/* INITIALIZATION ON DOM LOAD */
 document.addEventListener('DOMContentLoaded', () => {
   const dateFilter = document.getElementById('salesDateFilter');
   if (dateFilter) dateFilter.value = getTodayString();
+  renderSaleGrid();
 });
-
