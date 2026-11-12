@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS sales_transactions (
     id SERIAL PRIMARY KEY,
     txn_number VARCHAR(50) UNIQUE NOT NULL,
     user_id INT REFERENCES users(id) ON DELETE SET NULL,
+    payment_method VARCHAR(20) NOT NULL DEFAULT 'CASH' CHECK (payment_method IN ('CASH', 'GCASH')),
     grand_total NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
     total_cost NUMERIC(10, 2) NOT NULL DEFAULT 0.00,
     total_profit NUMERIC(10, 2) NOT NULL DEFAULT 0.00,

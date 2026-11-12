@@ -221,6 +221,9 @@
           <button class="btn btn-secondary sale-subtab-btn" onclick="switchSaleSubView('subview-refund', this)">
             🔄 Refund
           </button>
+          <button type="button" class="btn btn-secondary sale-subtab-btn" onclick="switchSaleSubView('sale-subview-payor', this)">
+            🧾 Payor
+          </button>
         </div>
 
         <!-- VIEW 1: SALES (WITH BARCODE / SCAN) - INALIS NA ANG CART -->
@@ -277,6 +280,17 @@
           </div>
         </div>
 
+        <!-- VIEW 5: PAYOR (EMPTY PLACEHOLDER) -->
+        <div id="sale-subview-payor" class="sale-subview-content" style="display: none;">
+          <div class="card" style="text-align: center; padding: 48px 20px; border: 1px dashed #cbd5e1; background: #f8fafc;">
+            <div style="font-size: 32px; margin-bottom: 10px;">🧾</div>
+            <h3 style="margin: 0 0 6px; color: #0f172a;">VIEW 5: PAYOR</h3>
+            <p style="margin: 0; color: #64748b; font-size: 13px;">
+              Empty placeholder — dito ilalagay ang module para sa Payor records at payments.
+            </p>
+          </div>
+        </div>
+
       </div>
 
       <!-- VIEW 3: DAILY SALES & RECEIPTS LOG -->
@@ -284,6 +298,7 @@
         <div class="card">
           <div class="card-title-bar">
             <span class="card-title">🧾 Daily Sales & Receipts Log</span>
+            <div id="salesLogSelectedDateDisplay" style="text-align: center; font-size: 16px; font-weight: 700; color: #0f172a; margin: 18px 0 12px; letter-spacing: 0.3px;"></div>
             <div style="display:flex; align-items:center; gap:8px;">
               <label for="salesDateFilter" style="margin:0;">Filter Date:</label>
               <input type="date" id="salesDateFilter" style="width:auto;" onchange="renderSalesLog()" />
@@ -317,11 +332,12 @@
             <thead>
               <tr>
                 <th>Time / Txn ID</th>
-                <th>Item Description (Part Name & OEM)</th>
+                <th>Item / Part Details</th>
                 <th style="text-align:center;">Qty</th>
-                <th style="text-align:right;">Investment (Cost)</th>
-                <th style="text-align:right;">Gross Sales</th>
-                <th style="text-align:right;">Net Profit</th>
+                <th style="text-align:center;">Payment</th>
+                <th style="text-align:right;">Cost</th>
+                <th style="text-align:right;">Total Sales</th>
+                <th style="text-align:right;">Profit</th>
               </tr>
             </thead>
             <tbody id="salesLogTableBody">
