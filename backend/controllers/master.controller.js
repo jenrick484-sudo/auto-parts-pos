@@ -1,4 +1,4 @@
-const pool = require('../db/pool');
+const db = require('../config/db');
 
 // Kunin ang lahat ng Master Items kasama ang kabuuang stock mula sa mga variant nito
 exports.getAllMasters = async (req, res) => {
@@ -11,7 +11,7 @@ exports.getAllMasters = async (req, res) => {
       GROUP BY m.id
       ORDER BY m.part_name ASC, m.oem ASC;
     `;
-    const result = await pool.query(query);
+    const result = await db.query(query);
     res.json({ success: true, masters: result.rows });
   } catch (error) {
     console.error('Error fetching master items:', error);
@@ -72,7 +72,7 @@ exports.createMaster = async (req, res) => {
       images || []
     ];
 
-    const result = await pool.query(query, values);
+    const result = await db.query(query, values);
     res.status(201).json({ 
       success: true, 
       message: 'Matagumpay na nairehistro ang Master Item!', 
@@ -92,14 +92,14 @@ exports.getMasterById = async (req, res) => {
   try {
     const { id } = req.params;
     const masterQuery = `SELECT * FROM master_items WHERE id = $1;`;
-    const masterRes = await pool.query(masterQuery, [id]);
+    const masterRes = await db.query(masterQuery, [id]);
 
     if (masterRes.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Hindi nahanap ang Master Item.' });
     }
 
     const variantsQuery = `SELECT * FROM inventory_variants WHERE master_id = $1;`;
-    const variantsRes = await pool.query(variantsQuery, [id]);
+    const variantsRes = await db.query(variantsQuery, [id]);
 
     res.json({
       success: true,

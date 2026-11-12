@@ -854,11 +854,18 @@
           <div class="form-row">
             <div class="form-group">
               <label>Selling Price (₱)</label>
-              <input type="number" step="0.01" id="salePriceInput" required oninput="updateConfirmTotalCost()">
+              <input type="number" step="0.01" min="0.01" id="salePriceInput" required oninput="updateConfirmTotalCost()">
             </div>
             <div class="form-group">
               <label>Quantity to Sell</label>
               <input type="number" id="saleQtyInput" min="1" value="1" required oninput="updateConfirmTotalCost()">
+            </div>
+            <div class="form-group">
+              <label for="salePaymentMethodInput">Payment Method *</label>
+              <select id="salePaymentMethodInput" required>
+                <option value="CASH" selected>CASH</option>
+                <option value="GCASH">G-CASH</option>
+              </select>
             </div>
             <div class="form-group">
               <label>Total Amount (₱)</label>
@@ -890,9 +897,6 @@
             <label for="qSupplierInput">SUPPLIER CODE / NAME *</label>
             <select id="qSupplierInput" required>
               <option value="">SELECT SUPPLIER...</option>
-              <option value="ABC AUTO SUPPLY CO.">ABC AUTO SUPPLY CO.</option>
-              <option value="JAPAPARTS TRADING">JAPAPARTS TRADING</option>
-              <option value="TOYOTA GENUINE PARTS DIRECT">TOYOTA GENUINE PARTS DIRECT</option>
             </select>
           </div>
           <div class="form-row">
@@ -985,3 +989,4 @@
 
 </body>
 </html>
+

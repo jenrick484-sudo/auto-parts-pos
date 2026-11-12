@@ -1,7 +1,7 @@
 /* ======================================================================
    DAIHO AUTOPARTS POS — PRODUCTION FRONTEND APPLICATION SCRIPT
    ====================================================================== */
-
+confirmDirectSale(event)
 /* SECURITY & UTILITY HELPERS */
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, char => ({
@@ -27,6 +27,7 @@ let systemUsers = [];
 let masterItems = [];       
 let inventoryBatches = [];  
 let salesTransactions = []; 
+let registeredSuppliers = [];
 
 let cart = [];
 let salesChartInstance = null;
@@ -53,7 +54,6 @@ let lastScannedCode = "";
 let lastScanTime = 0;
 
 /* DIRECT SALE CONFIRMATION MODAL LOGIC */
-/* DIRECT SALE CONFIRMATION MODAL LOGIC */
 let activeSelectedBatchForSale = null;
 
 function openConfirmSaleModal(batchCode) {
@@ -64,7 +64,7 @@ function openConfirmSaleModal(batchCode) {
     alert('⚠️ Out of stock na ang item/variant na ito!');
     return;
   }
-
+  
   const mId = batch.masterId || batch.master_id;
   const master = masterItems.find(m => Number(m.id) === Number(mId)) || { partName: 'ITEM', part_name: 'ITEM', oem: '' };
   activeSelectedBatchForSale = batch;
@@ -78,6 +78,9 @@ function openConfirmSaleModal(batchCode) {
   // 🖼️ LOAD ITEM IMAGES & ATTACH LIGHTBOX CLICK EVENTS
   const images = master.images || master.image_urls || [];
   modalActiveImages = images; // Isine-set sa global array para sa openLightbox()
+
+  const paymentSelectEl = document.getElementById('salePaymentMethodInput');
+  if (paymentSelectEl) paymentSelectEl.value = 'CASH';
 
   const galleryEl = document.getElementById('confirmImageGallery');
   if (galleryEl) {
@@ -98,9 +101,14 @@ function openConfirmSaleModal(batchCode) {
     }
   }
 
-  // INITIAL EDITABLE VALUES
+  // INITIAL EDITABLE VALUES (MIN PRICE = ITEM COST)
   const defaultPrice = Number(batch.price || 0);
-  document.getElementById('salePriceInput').value = defaultPrice.toFixed(2);
+  const itemCost = Number(batch.cost || 0);
+  const priceInputEl = document.getElementById('salePriceInput');
+
+  priceInputEl.value = defaultPrice.toFixed(2);
+  priceInputEl.min = itemCost.toFixed(2);
+
   document.getElementById('saleQtyInput').value = 1;
   document.getElementById('saleQtyInput').max = batch.stock;
 
@@ -130,31 +138,55 @@ async function confirmDirectSale(event) {
   const batch = activeSelectedBatchForSale;
   const mId = batch.masterId || batch.master_id;
   const master = masterItems.find(m => Number(m.id) === Number(mId)) || { partName: 'ITEM', part_name: 'ITEM', oem: '', brand: '' };
-  
-  const sellingPrice = parseFloat(document.getElementById('salePriceInput').value) || 0;
-  const qty = parseInt(document.getElementById('saleQtyInput').value) || 1;
-  const totalAmount = sellingPrice * qty;
-  const totalCost = Number(batch.cost) * qty;
 
-  if (qty > Number(batch.stock)) {
-    alert(`Hindi pwedeng lumagpas sa available stock (${batch.stock} pcs)!`);
+  const sellingPrice = parseFloat(document.getElementById('salePriceInput').value);
+  const unitCost = Number(batch.cost || 0);
+  const qty = parseInt(document.getElementById('saleQtyInput').value, 10);
+  const paymentMethod = document.getElementById('salePaymentMethodInput')?.value || 'CASH';
+  
+  // 1. VALIDATION PARA SA EDITABLE PRICE, COST, AT QUANTITY
+  if (isNaN(sellingPrice) || sellingPrice <= 0) {
+    alert('⚠️ Kailangang mas mataas sa ₱0.00 ang Selling Price!');
+    document.getElementById('salePriceInput').focus();
     return;
   }
 
+  if (sellingPrice < unitCost) {
+    alert(`⚠️ Hindi pwedeng mas mababa sa puhunan/cost (₱${unitCost.toFixed(2)}) ang Selling Price!`);
+    document.getElementById('salePriceInput').focus();
+    return;
+  }
+
+  if (isNaN(qty) || qty <= 0) {
+    alert('⚠️ Kailangang hindi bababa sa 1 ang Quantity to Sell!');
+    document.getElementById('saleQtyInput').focus();
+    return;
+  }
+
+  if (paymentMethod !== 'CASH' && paymentMethod !== 'GCASH') {
+    alert('⚠️ Pumili lamang ng CASH o G-CASH bilang Payment Method!');
+    return;
+  }
+
+  const totalAmount = sellingPrice * qty;
+
   const salePayload = {
+    user_id: loggedInUser && loggedInUser.id ? Number(loggedInUser.id) : null,
     batch_code: batch.code || batch.variant_code,
     qty: qty,
     price: sellingPrice,
     cost: Number(batch.cost),
+    payment_method: paymentMethod,
     cash_tendered: totalAmount,
     change_amount: 0
   };
 
   try {
-    const res = await apiRequest('/sales', 'POST', salePayload);
+    await apiRequest('/sales', 'POST', salePayload);
     batch.stock = Number(batch.stock) - qty;
 
-    alert(`✅ Direct Sale Confirmed & Logged to DB!\n--------------------\nItem: ${master.partName || master.part_name}\nUnit Price: ₱${sellingPrice.toFixed(2)}\nQty: ${qty}\nTotal Amount: ₱${totalAmount.toFixed(2)}`);
+    const paymentLabel = paymentMethod === 'GCASH' ? 'G-CASH' : 'CASH';
+    alert(`✅ Direct Sale Confirmed & Saved!\n--------------------\nItem: ${master.partName || master.part_name}\nUnit Price: ₱${sellingPrice.toFixed(2)}\nQty: ${qty}\nPayment: ${paymentLabel}\nTotal Amount: ₱${totalAmount.toFixed(2)}`);
 
     closeConfirmSaleModal();
     await loadProductionDataFromBackend();
@@ -163,55 +195,35 @@ async function confirmDirectSale(event) {
     if (typeof renderDashboard === 'function') renderDashboard();
     if (typeof renderReportsModule === 'function') renderReportsModule();
   } catch (err) {
-    console.warn("API Offline Fallback for Sale:", err);
-    batch.stock = Number(batch.stock) - qty;
-    const now = new Date();
-    const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    salesTransactions.unshift({
-      id: "TXN-" + Math.floor(100000 + Math.random() * 900000),
-      date: getTodayString(),
-      time: timeStr,
-      items: [{
-        batchCode: batch.code || batch.variant_code,
-        partName: master.partName || master.part_name,
-        oem: master.oem,
-        brand: master.brand,
-        qty: qty,
-        cost: Number(batch.cost),
-        price: sellingPrice
-      }],
-      grandTotal: totalAmount,
-      totalCost: totalCost,
-      totalProfit: totalAmount - totalCost,
-      cash: totalAmount,
-      change: 0
-    });
-
-    alert(`✅ Sale Confirmed (Offline Mode)\nTotal: ₱${totalAmount.toFixed(2)}`);
-    closeConfirmSaleModal();
-    renderSaleGrid();
-    renderSalesLog();
+    console.error('Sale Save Error:', err);
+    alert(`❌ Nabigong i-save ang benta sa database: ${err.message}`);
   }
 }
 
 /* BACKEND DATA SYNCHRONIZATION */
 async function loadProductionDataFromBackend() {
   try {
-    const [mastersRes, variantsRes, salesRes, usersRes] = await Promise.all([
+    const [mastersRes, variantsRes, salesRes, usersRes, suppliersRes] = await Promise.all([
       apiRequest('/masters', 'GET').catch(() => []),
       apiRequest('/variants', 'GET').catch(() => []),
       apiRequest('/sales', 'GET').catch(() => []),
-      apiRequest('/users', 'GET').catch(() => [])
+      apiRequest('/users', 'GET').catch(() => []),
+      apiRequest('/suppliers', 'GET').catch(() => [])
     ]);
 
     masterItems = Array.isArray(mastersRes) ? mastersRes : (mastersRes.masters || []);
     inventoryBatches = Array.isArray(variantsRes) ? variantsRes : (variantsRes.variants || []);
     salesTransactions = Array.isArray(salesRes) ? salesRes : (salesRes.sales || []);
     systemUsers = Array.isArray(usersRes) ? usersRes : (usersRes.users || systemUsers);
+    registeredSuppliers = Array.isArray(suppliersRes) ? suppliersRes : (suppliersRes.suppliers || []);
 
-    console.log("✅ Production data successfully loaded from database.");
+    // I-populate agad ang supplier dropdown sa Inventory Modal
+    updateSupplierDropdowns();
+
+    console.log("✅ Production data & suppliers successfully loaded from database.");
   } catch (error) {
     console.error("❌ Error loading production data:", error);
+    alert("Nabigong makuha ang data mula sa server. Suriin ang koneksyon.");
   }
 }
 
@@ -225,63 +237,73 @@ function togglePasswordVisibility() {
 
 async function handleLoginSubmit(event) {
   event.preventDefault();
-  const userIn = document.getElementById('loginUsernameInput').value.trim().toUpperCase();
+  const userIn = document.getElementById('loginUsernameInput').value.trim();
   const passIn = document.getElementById('loginPasswordInput').value;
   const errorMsg = document.getElementById('loginErrorMsg');
+  const submitBtn = document.getElementById('loginSubmitBtn');
 
-  try {
-    let userMatch = null;
-
-    // 1. Subukang mag-login sa Backend API
-    try {
-      const authRes = await apiRequest('/auth/login', 'POST', { username: userIn, password: passIn });
-      if (authRes && (authRes.user || authRes.data)) {
-        userMatch = authRes.user || authRes.data;
-        if (authRes.token) localStorage.setItem('pos_token', authRes.token);
-      }
-    } catch (apiErr) {
-      console.warn("Backend API login failed or offline mode:", apiErr);
-      userMatch = systemUsers.find(u => u.username.toUpperCase() === userIn && u.password === passIn);
-    }
-
-    // 2. I-verify ang credentials
-    if (userMatch || userIn === "ADMIN") {
-      loggedInUser = userMatch || { id: 1, fullName: "SYSTEM ADMINISTRATOR", username: userIn, role: "ADMIN" };
-      
-      if (errorMsg) errorMsg.style.display = 'none';
-      
-      const loginScreen = document.getElementById('loginScreen');
-      if (loginScreen) loginScreen.style.display = 'none';
-      
-      const loginForm = document.getElementById('loginForm');
-      if (loginForm) loginForm.reset();
-
-      // Safe update sa Header User Info
-      const nameEl = document.getElementById('activeUserFullName');
-      if (nameEl) nameEl.textContent = loggedInUser.fullName || loggedInUser.full_name || "SYSTEM ADMINISTRATOR";
-
-      const roleEl = document.getElementById('activeUserRoleBadge');
-      if (roleEl) roleEl.textContent = loggedInUser.role || "ADMIN";
-
-      // Ligtas na pag-load ng Dashboard & Data
-      try {
-        await loadProductionDataFromBackend();
-        applyUserRoleRestrictions();
-        switchView('view-dashboard', document.querySelectorAll('.nav-item')[0]);
-      } catch (loadErr) {
-        console.error("Error loading views post-login:", loadErr);
-      }
-    } else {
-      if (errorMsg) {
-        errorMsg.style.display = 'block';
-        errorMsg.textContent = '❌ Mali ang Username o Password!';
-      }
-    }
-  } catch (err) {
-    console.error("Critical Login Error:", err);
+  if (!userIn || !passIn) {
     if (errorMsg) {
       errorMsg.style.display = 'block';
-      errorMsg.textContent = `❌ May nangyaring error sa pag-login: ${err.message}`;
+      errorMsg.textContent = '⚠️ Ilagay ang iyong Username at Password.';
+    }
+    return;
+  }
+
+  if (errorMsg) errorMsg.style.display = 'none';
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="btn-text">NAGMAMA-LOGIN...</span>';
+  }
+
+  try {
+    // Direktang i-verify ang credentials sa Backend API (/api/auth/login)
+    const authRes = await apiRequest('/auth/login', 'POST', {
+      username: userIn,
+      password: passIn
+    });
+
+    const authenticatedUser = authRes?.user || authRes?.data;
+
+    if (!authenticatedUser) {
+      throw new Error('Hindi wasto ang tugon mula sa authentication server.');
+    }
+
+    loggedInUser = authenticatedUser;
+    if (authRes.token) {
+      localStorage.setItem('pos_token', authRes.token);
+    }
+
+    const loginScreen = document.getElementById('loginScreen');
+    if (loginScreen) loginScreen.style.display = 'none';
+
+    const loginForm = document.getElementById('loginForm');
+    if (loginForm) loginForm.reset();
+
+    const nameEl = document.getElementById('activeUserFullName');
+    if (nameEl) nameEl.textContent = loggedInUser.fullName || loggedInUser.full_name || loggedInUser.username;
+
+    const roleEl = document.getElementById('activeUserRoleBadge');
+    if (roleEl) roleEl.textContent = loggedInUser.role;
+
+    // I-load ang production data mula sa PostgreSQL
+    await loadProductionDataFromBackend();
+    applyUserRoleRestrictions();
+
+    if (loggedInUser.role !== 'CASHIER') {
+      switchView('view-dashboard', document.querySelectorAll('.nav-item')[0]);
+    }
+
+  } catch (err) {
+    console.error('Login Failed:', err);
+    if (errorMsg) {
+      errorMsg.style.display = 'block';
+      errorMsg.textContent = `❌ ${err.message || 'Mali ang Username o Password!'}`;
+    }
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = '<span class="btn-text">MAG-LOGIN</span>';
     }
   }
 }
@@ -742,6 +764,9 @@ document.getElementById('restockForm').addEventListener('submit', async function
 function openQuickCodingModal(masterId) {
   const master = masterItems.find(m => Number(m.id) === Number(masterId));
   if (!master) return;
+
+  updateSupplierDropdowns();
+
   document.getElementById('quickMasterIdInput').value = master.id;
   document.getElementById('quickCodingMasterSub').textContent = `${master.partName || master.part_name} - ${master.oem} | ${master.brand}`;
   document.getElementById('quickCodingModal').style.display = 'flex';
@@ -1466,8 +1491,6 @@ function renderDailyReport() {
 }
 
 /* SUPPLIER MANAGEMENT */
-let registeredSuppliers = [];
-
 async function renderSuppliersTable() {
   try {
     registeredSuppliers = await apiRequest('/suppliers', 'GET');
