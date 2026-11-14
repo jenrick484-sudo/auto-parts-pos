@@ -1,7 +1,27 @@
 /* ============================================================================
-   01. SECURITY, DATE & NUMBER/CURRENCY FORMATTING HELPERS
+   DAIHO AUTOPARTS POS — PRODUCTION FRONTEND APPLICATION SCRIPT
+   ============================================================================
+   TABLE OF CONTENTS (NAVIGATION GUIDE):
+   01. Security, Date, Currency & Price Letter-Code Helpers
+   02. Global Application State
+   03. Backend Data Synchronization & Topbar Alerts
+   04. Authentication, Role Restrictions, Remember Username & Session Persistence
+   05. Main Navigation, Sidebar Controls, Live Clock & Global Search
+   06. Executive Dashboard & Charts
+   07. POS Checkout (5 Sub-Views), Camera Scanner & Direct Sale Modal
+   08. Daily Sales & Receipts Log
+   09. Financial & Performance Reports (Yearly / Monthly / Daily)
+   10. Master Item Registration & Catalog Grid
+   11. Item Details Modal & Fullscreen Image Lightbox
+   12. Central Inventory, Variant Coding, Thermal Barcode Print & Restock
+   13. Supplier & User Management + App Initialization
    ============================================================================ */
-document.getElementById('restockForm')
+
+
+/* ============================================================================
+   01. SECURITY, DATE, CURRENCY & PRICE LETTER-CODE HELPERS
+   ============================================================================ */
+
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, char => ({
     '&': '&amp;',
@@ -24,14 +44,12 @@ function getTodayString() {
   return `${year}-${month}-${day}`;
 }
 
-// Naglalagay ng comma sa whole numbers kapag lumampas sa 3 digits (hal. 1,000)
 function formatNumber(val) {
   const num = Number(val);
   if (isNaN(num)) return '0';
   return num.toLocaleString('en-US');
 }
 
-// Naglalagay ng comma at 2 decimal places sa presyo/pera (hal. 1,250.00)
 function formatCurrency(val) {
   const num = Number(val);
   if (isNaN(num)) return '0.00';
@@ -80,6 +98,21 @@ function formatPackagingText(item) {
   return '1 PC (PIECE)';
 }
 
+function refreshLucideIcons() {
+  if (typeof lucide !== 'undefined' && typeof lucide.createIcons === 'function') {
+    lucide.createIcons();
+  }
+}
+
+function getUserInitials(name) {
+  const clean = (name || 'DH').trim();
+  const parts = clean.split(/\s+/);
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+  return clean.slice(0, 2).toUpperCase();
+}
+
 
 /* ============================================================================
    02. GLOBAL APPLICATION STATE
@@ -92,7 +125,6 @@ let inventoryBatches = [];
 let salesTransactions = [];
 let registeredSuppliers = [];
 
-let cart = [];
 let activeSelectedBatchForSale = null;
 
 // Chart.js Instances
@@ -124,7 +156,7 @@ let lastScanTime = 0;
 
 
 /* ============================================================================
-   03. BACKEND DATA SYNCHRONIZATION
+   03. BACKEND DATA SYNCHRONIZATION & TOPBAR ALERTS
    ============================================================================ */
 
 async function loadProductionDataFromBackend() {
@@ -143,13 +175,31 @@ async function loadProductionDataFromBackend() {
     systemUsers = Array.isArray(usersRes) ? usersRes : (usersRes.users || systemUsers);
     registeredSuppliers = Array.isArray(suppliersRes) ? suppliersRes : (suppliersRes.suppliers || []);
 
-    // Awtomatikong i-populate ang supplier dropdown sa New Variant Modal
     updateSupplierDropdowns();
+    updateTopbarAlertBadge();
 
     console.log('✅ Production data & suppliers successfully loaded from database.');
   } catch (error) {
     console.error('❌ Error loading production data:', error);
     alert('Nabigong makuha ang data mula sa server. Suriin ang koneksyon.');
+  }
+}
+
+function updateTopbarAlertBadge() {
+  const alertDot = document.getElementById('topbarAlertDot');
+  if (!alertDot) return;
+
+  const alertCount = inventoryBatches.filter(b => {
+    const stock = Number(b.stock || 0);
+    const limit = Number(b.lowStockLimit || b.low_stock_limit || 0);
+    return stock === 0 || stock <= limit;
+  }).length;
+
+  if (alertCount > 0) {
+    alertDot.style.display = 'inline-block';
+    alertDot.textContent = alertCount > 99 ? '99+' : String(alertCount);
+  } else {
+    alertDot.style.display = 'none';
   }
 }
 
@@ -160,21 +210,43 @@ async function loadProductionDataFromBackend() {
 
 function togglePasswordVisibility() {
   const pwdInput = document.getElementById('loginPasswordInput');
-  if (pwdInput) {
-    pwdInput.type = pwdInput.type === 'password' ? 'text' : 'password';
+  const toggleBtn = document.getElementById('togglePasswordBtn');
+  if (!pwdInput) return;
+
+  const isHidden = pwdInput.type === 'password';
+  pwdInput.type = isHidden ? 'text' : 'password';
+
+  if (toggleBtn) {
+    toggleBtn.setAttribute('aria-pressed', String(isHidden));
+    toggleBtn.setAttribute('aria-label', isHidden ? 'Hide password' : 'Show password');
+    toggleBtn.innerHTML = `<i id="pwdEyeIcon" data-lucide="${isHidden ? 'eye-off' : 'eye'}"></i>`;
+    refreshLucideIcons();
   }
+}
+
+function applyUserProfileToTopbar(user) {
+  const displayName = user.fullName || user.full_name || user.username || 'User Account';
+  const nameEl = document.getElementById('activeUserFullName');
+  if (nameEl) nameEl.textContent = displayName;
+
+  const roleEl = document.getElementById('activeUserRoleBadge');
+  if (roleEl) roleEl.textContent = user.role || 'STAFF';
+
+  const initialsEl = document.getElementById('activeUserInitials');
+  if (initialsEl) initialsEl.textContent = getUserInitials(displayName);
 }
 
 async function handleLoginSubmit(event) {
   event.preventDefault();
   const userIn = document.getElementById('loginUsernameInput').value.trim();
   const passIn = document.getElementById('loginPasswordInput').value;
+  const rememberChecked = document.getElementById('rememberUsernameCheckbox')?.checked;
   const errorMsg = document.getElementById('loginErrorMsg');
   const submitBtn = document.getElementById('loginSubmitBtn');
 
   if (!userIn || !passIn) {
     if (errorMsg) {
-      errorMsg.style.display = 'block';
+      errorMsg.style.display = 'flex';
       errorMsg.textContent = '⚠️ Ilagay ang iyong Username at Password.';
     }
     return;
@@ -183,7 +255,7 @@ async function handleLoginSubmit(event) {
   if (errorMsg) errorMsg.style.display = 'none';
   if (submitBtn) {
     submitBtn.disabled = true;
-    submitBtn.innerHTML = '<span class="btn-text">NAGMAMA-LOGIN...</span>';
+    submitBtn.innerHTML = '<span class="btn-text">SIGNING IN...</span>';
   }
 
   try {
@@ -195,6 +267,12 @@ async function handleLoginSubmit(event) {
     const authenticatedUser = authRes?.user || authRes?.data;
     if (!authenticatedUser) {
       throw new Error('Hindi wasto ang tugon mula sa authentication server.');
+    }
+
+    if (rememberChecked) {
+      localStorage.setItem('pos_remembered_username', userIn);
+    } else {
+      localStorage.removeItem('pos_remembered_username');
     }
 
     loggedInUser = authenticatedUser;
@@ -209,28 +287,24 @@ async function handleLoginSubmit(event) {
     const loginForm = document.getElementById('loginForm');
     if (loginForm) loginForm.reset();
 
-    const nameEl = document.getElementById('activeUserFullName');
-    if (nameEl) nameEl.textContent = loggedInUser.fullName || loggedInUser.full_name || loggedInUser.username;
-
-    const roleEl = document.getElementById('activeUserRoleBadge');
-    if (roleEl) roleEl.textContent = loggedInUser.role;
+    applyUserProfileToTopbar(loggedInUser);
 
     await loadProductionDataFromBackend();
     applyUserRoleRestrictions();
 
     if (loggedInUser.role !== 'CASHIER') {
-      switchView('view-dashboard', document.querySelectorAll('.nav-item')[0]);
+      switchView('view-dashboard', document.querySelector('.nav-item[data-view="view-dashboard"]'));
     }
   } catch (err) {
     console.error('Login Failed:', err);
     if (errorMsg) {
-      errorMsg.style.display = 'block';
+      errorMsg.style.display = 'flex';
       errorMsg.textContent = `❌ ${err.message || 'Mali ang Username o Password!'}`;
     }
   } finally {
     if (submitBtn) {
       submitBtn.disabled = false;
-      submitBtn.innerHTML = '<span class="btn-text">MAG-LOGIN</span>';
+      submitBtn.innerHTML = '<span class="btn-text">SIGN IN TO WORKSPACE</span>';
     }
   }
 }
@@ -238,6 +312,15 @@ async function handleLoginSubmit(event) {
 async function restoreSessionOnReload() {
   const savedUserRaw = localStorage.getItem('pos_user');
   const loginScreen = document.getElementById('loginScreen');
+
+  // Pre-fill remembered username if saved
+  const rememberedUser = localStorage.getItem('pos_remembered_username');
+  if (rememberedUser) {
+    const uInput = document.getElementById('loginUsernameInput');
+    const remCheck = document.getElementById('rememberUsernameCheckbox');
+    if (uInput) uInput.value = rememberedUser;
+    if (remCheck) remCheck.checked = true;
+  }
 
   if (!savedUserRaw) {
     if (loginScreen) loginScreen.style.display = 'flex';
@@ -251,12 +334,7 @@ async function restoreSessionOnReload() {
     }
 
     if (loginScreen) loginScreen.style.display = 'none';
-
-    const nameEl = document.getElementById('activeUserFullName');
-    if (nameEl) nameEl.textContent = loggedInUser.fullName || loggedInUser.full_name || loggedInUser.username;
-
-    const roleEl = document.getElementById('activeUserRoleBadge');
-    if (roleEl) roleEl.textContent = loggedInUser.role;
+    applyUserProfileToTopbar(loggedInUser);
 
     await loadProductionDataFromBackend();
     applyUserRoleRestrictions();
@@ -285,6 +363,7 @@ function handleLogout() {
     localStorage.removeItem('pos_token');
     localStorage.removeItem('pos_active_view');
     stopCameraScanner();
+    closeMobileSidebar();
 
     const loginScreen = document.getElementById('loginScreen');
     if (loginScreen) loginScreen.style.display = 'flex';
@@ -293,28 +372,98 @@ function handleLogout() {
 
 function applyUserRoleRestrictions() {
   const navItems = document.querySelectorAll('.nav-item');
+  const sectionLabels = document.querySelectorAll('.nav-section-label');
   if (!loggedInUser) return;
 
   if (loggedInUser.role === 'CASHIER') {
     navItems.forEach((item, idx) => {
       item.style.display = idx === 1 ? 'flex' : 'none';
     });
+    if (sectionLabels[1]) sectionLabels[1].style.display = 'none';
     switchView('view-sale', navItems[1]);
   } else if (loggedInUser.role === 'MANAGER') {
     navItems.forEach((item, idx) => {
       item.style.display = idx === 7 ? 'none' : 'flex';
     });
+    if (sectionLabels[1]) sectionLabels[1].style.display = 'block';
   } else {
     navItems.forEach(item => {
       item.style.display = 'flex';
+    });
+    sectionLabels.forEach(lbl => {
+      lbl.style.display = 'block';
     });
   }
 }
 
 
 /* ============================================================================
-   05. MAIN NAVIGATION & VIEW SWITCHER
+   05. MAIN NAVIGATION, SIDEBAR CONTROLS, LIVE CLOCK & GLOBAL SEARCH
    ============================================================================ */
+
+function toggleDesktopSidebar() {
+  const sidebar = document.getElementById('appSidebar');
+  if (sidebar) sidebar.classList.toggle('collapsed');
+}
+
+function openMobileSidebar() {
+  const sidebar = document.getElementById('appSidebar');
+  const backdrop = document.getElementById('mobileSidebarBackdrop');
+  if (sidebar) sidebar.classList.add('mobile-open');
+  if (backdrop) backdrop.classList.add('active');
+}
+
+function closeMobileSidebar() {
+  const sidebar = document.getElementById('appSidebar');
+  const backdrop = document.getElementById('mobileSidebarBackdrop');
+  if (sidebar) sidebar.classList.remove('mobile-open');
+  if (backdrop) backdrop.classList.remove('active');
+}
+
+function startLiveClock() {
+  const clockEl = document.getElementById('liveDateTimeDisplay');
+  if (!clockEl) return;
+
+  const updateClock = () => {
+    const now = new Date();
+    clockEl.textContent = now.toLocaleString('en-US', {
+      month: 'short',
+      day: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+  };
+
+  updateClock();
+  setInterval(updateClock, 1000);
+}
+
+function handleGlobalSearchKey(event) {
+  if (event.key !== 'Enter') return;
+  const query = (event.target.value || '').trim().toUpperCase();
+  if (!query) return;
+
+  // Kung naka-login ang Cashier, sa POS search dadalhin
+  if (loggedInUser && loggedInUser.role === 'CASHIER') {
+    switchView('view-sale');
+    const saleInput = document.getElementById('saleSearchInput');
+    if (saleInput) {
+      saleInput.value = query;
+      renderSaleGrid();
+    }
+    return;
+  }
+
+  // Para sa Admin/Manager, dadalhin sa Central Inventory at sasalain agad
+  switchView('view-inventory');
+  const invInput = document.getElementById('inventorySearch');
+  if (invInput) {
+    invInput.value = query;
+    renderInventoryGrid();
+  }
+}
 
 function switchView(viewId, element) {
   if (!loggedInUser) return;
@@ -328,35 +477,37 @@ function switchView(viewId, element) {
     return;
   }
 
-  // 1. I-reset ang active classes
+  closeMobileSidebar();
+
   document.querySelectorAll('.view-content').forEach(view => view.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
 
-  // 2. Ipakita ang napiling section at i-highlight ang tamang sidebar menu
   const targetView = document.getElementById(viewId);
   if (targetView) targetView.classList.add('active');
 
-  const activeNav = element || document.querySelector(`.nav-item[onclick*="${viewId}"]`);
+  const activeNav = element || document.querySelector(`.nav-item[data-view="${viewId}"]`) || document.querySelector(`.nav-item[onclick*="${viewId}"]`);
   if (activeNav) activeNav.classList.add('active');
 
-  // 3. I-save ang kasalukuyang page para hindi mawala kapag nag-reload
   localStorage.setItem('pos_active_view', viewId);
 
-  // 4. I-update ang Page Header Title
-  const titles = {
-    'view-dashboard': 'Executive Overview Dashboard',
-    'view-sale': 'Point of Sale / Checkout Module',
-    'view-sales-log': 'Daily Sales & Receipts Log',
-    'view-reports': 'Financial & Performance Reports',
-    'view-master': 'Master Item Management',
-    'view-inventory': 'Central Inventory',
-    'view-suppliers': 'Supplier Management',
-    'view-users': 'User Management & Accounts'
+  const viewMeta = {
+    'view-dashboard': { title: 'Executive Overview Dashboard', crumb: 'Executive Overview' },
+    'view-sale': { title: 'Point of Sale / Checkout Module', crumb: 'Point of Sale (POS)' },
+    'view-sales-log': { title: 'Daily Sales & Receipts Log', crumb: 'Daily Sales Log' },
+    'view-reports': { title: 'Financial & Performance Reports', crumb: 'Financial Reports' },
+    'view-master': { title: 'Master Item Management', crumb: 'Register Master Item' },
+    'view-inventory': { title: 'Central Inventory', crumb: 'Central Inventory' },
+    'view-suppliers': { title: 'Supplier Management', crumb: 'Suppliers' },
+    'view-users': { title: 'User Management & Accounts', crumb: 'System Users' }
   };
-  const titleEl = document.getElementById('pageTitle');
-  if (titleEl && titles[viewId]) titleEl.textContent = titles[viewId];
 
-  // 5. I-render ang data ng binuksang view
+  const titleEl = document.getElementById('pageTitle');
+  const crumbEl = document.getElementById('breadcrumbCurrent');
+  if (viewMeta[viewId]) {
+    if (titleEl) titleEl.textContent = viewMeta[viewId].title;
+    if (crumbEl) crumbEl.textContent = viewMeta[viewId].crumb;
+  }
+
   if (viewId === 'view-dashboard') renderDashboard();
   if (viewId === 'view-sale') {
     renderSaleGrid();
@@ -372,6 +523,8 @@ function switchView(viewId, element) {
   if (viewId === 'view-inventory') renderInventoryGrid();
   if (viewId === 'view-suppliers') renderSuppliersTable();
   if (viewId === 'view-users') renderUsersTable();
+
+  refreshLucideIcons();
 }
 
 
@@ -390,7 +543,7 @@ function renderDashboard() {
   document.getElementById('dashTodayProfit').textContent = `₱${formatCurrency(todayProfit)}`;
 
   const outOfStockList = inventoryBatches.filter(b => Number(b.stock) === 0);
-  const lowStockList = inventoryBatches.filter(b => Number(b.stock) > 0 && Number(b.stock) <= Number(b.lowStockLimit || 0));
+  const lowStockList = inventoryBatches.filter(b => Number(b.stock) > 0 && Number(b.stock) <= Number(b.lowStockLimit || b.low_stock_limit || 0));
   const totalAlerts = outOfStockList.length + lowStockList.length;
 
   document.getElementById('dashLowStockCount').textContent = `${formatNumber(totalAlerts)} Items`;
@@ -399,6 +552,8 @@ function renderDashboard() {
   const assetValuation = inventoryBatches.reduce((sum, b) => sum + (Number(b.cost || 0) * Number(b.stock || 0)), 0);
   document.getElementById('dashAssetValuation').textContent = `₱${formatCurrency(assetValuation)}`;
   document.getElementById('dashTotalItemsCount').textContent = `${formatNumber(masterItems.length)} Masters | ${formatNumber(inventoryBatches.length)} Variants`;
+
+  updateTopbarAlertBadge();
 
   // Critical Stock / Reorder Table
   const reorderBody = document.getElementById('dashReorderTableBody');
@@ -418,7 +573,7 @@ function renderDashboard() {
           <td>${escapeHtml(master.partName || master.part_name)} (${escapeHtml(master.oem)})</td>
           <td style="text-align:center;"><span class="stock-badge ${badgeClass}">${formatNumber(b.stock)}</span></td>
           <td style="text-align:center;">
-            <button class="btn btn-primary" style="font-size:10px; padding:2px 6px;" onclick="goToInventoryAndRestock('${escapeHtml(b.code || b.variant_code)}')">➕ Restock</button>
+            <button class="btn btn-primary btn-sm" style="font-size:11px; padding:4px 10px;" onclick="goToInventoryAndRestock('${escapeHtml(b.code || b.variant_code)}')">+ Restock</button>
           </td>
         `;
         reorderBody.appendChild(tr);
@@ -439,7 +594,7 @@ function renderDashboard() {
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td><strong>${escapeHtml(t.time || '')}</strong><br><small style="color:#64748b;">${escapeHtml(t.txnNumber || t.id || t.transaction_id)}</small></td>
-          <td style="text-align:right; font-weight:800; color:#2563eb;">₱${formatCurrency(t.grandTotal || t.grand_total || 0)}</td>
+          <td style="text-align:right; font-weight:800; color:#FF6600;">₱${formatCurrency(t.grandTotal || t.grand_total || 0)}</td>
         `;
         recentBody.appendChild(tr);
       });
@@ -450,10 +605,7 @@ function renderDashboard() {
 }
 
 function renderDashboardCharts() {
-  if (typeof Chart === 'undefined') {
-    console.warn('Chart.js library is not loaded.');
-    return;
-  }
+  if (typeof Chart === 'undefined') return;
 
   const ctxSales = document.getElementById('salesTrendChart');
   if (!ctxSales) return;
@@ -481,11 +633,11 @@ function renderDashboardCharts() {
       datasets: [{
         label: 'Daily Sales (₱)',
         data: trendValues,
-        borderColor: '#2563eb',
-        backgroundColor: 'rgba(37, 99, 235, 0.08)',
+        borderColor: '#FF6600',
+        backgroundColor: 'rgba(255, 102, 0, 0.12)',
         fill: true,
         tension: 0.3,
-        borderWidth: 2
+        borderWidth: 2.5
       }]
     },
     options: {
@@ -539,7 +691,7 @@ function renderDashboardCharts() {
       labels: labels.slice(0, 5),
       datasets: [{
         data: data.slice(0, 5),
-        backgroundColor: ['#2563eb', '#16a34a', '#ea580c', '#8b5cf6', '#ec4899']
+        backgroundColor: ['#FF6600', '#1A1A1A', '#16A34A', '#D97706', '#64748B']
       }]
     },
     options: {
@@ -559,7 +711,7 @@ function renderDashboardCharts() {
 
 
 /* ============================================================================
-   07. POS CHECKOUT, CAMERA SCANNER & DIRECT SALE MODAL
+   07. POS CHECKOUT (5 SUB-VIEWS), CAMERA SCANNER & DIRECT SALE MODAL
    ============================================================================ */
 
 function switchSaleSubView(subViewId, btnElement) {
@@ -568,22 +720,20 @@ function switchSaleSubView(subViewId, btnElement) {
   });
 
   document.querySelectorAll('.sale-subtab-btn').forEach(btn => {
-    btn.classList.remove('btn-primary', 'active');
-    btn.classList.add('btn-secondary');
+    btn.classList.remove('active');
   });
 
   const targetView = document.getElementById(subViewId);
   if (targetView) targetView.style.display = 'block';
 
   if (btnElement) {
-    btnElement.classList.remove('btn-secondary');
-    btnElement.classList.add('btn-primary', 'active');
+    btnElement.classList.add('active');
   }
 
-  // I-off ang live camera kapag lumipat sa ibang sub-view
-  if (subViewId !== 'sale-subview-direct') {
+  if (subViewId !== 'subview-sales-scan') {
     stopCameraScanner();
   }
+  refreshLucideIcons();
 }
 
 function toggleCameraScanner() {
@@ -618,8 +768,9 @@ function startCameraScanner() {
     isCameraStarting = false;
     isCameraActive = true;
     if (btn) {
-      btn.textContent = '🛑 Stop Camera';
-      btn.className = 'btn btn-danger';
+      btn.innerHTML = '<i data-lucide="camera-off"></i> Stop Camera';
+      btn.className = 'btn btn-danger btn-sm';
+      refreshLucideIcons();
     }
   }).catch(() => {
     isCameraStarting = false;
@@ -638,8 +789,9 @@ function stopCameraScanner() {
       if (wrapper) wrapper.style.display = 'none';
       const btn = document.getElementById('camToggleBtn');
       if (btn) {
-        btn.textContent = '📷 Open Live Camera Scanner';
-        btn.className = 'btn btn-primary';
+        btn.innerHTML = '<i data-lucide="camera"></i> Open Live Camera Scanner';
+        btn.className = 'btn btn-primary btn-sm';
+        refreshLucideIcons();
       }
     }).catch(() => {
       isCameraActive = false;
@@ -689,7 +841,6 @@ function renderSaleGrid() {
   let matchingVariants = [];
 
   if (search === '') {
-    // Ipakita nang awtomatiko ang Out of Stock at Low Stock alerts
     matchingVariants = inventoryBatches.filter(b => {
       const currentStock = Number(b.stock || 0);
       const limit = Number(b.lowStockLimit || b.low_stock_limit || 0);
@@ -698,14 +849,13 @@ function renderSaleGrid() {
 
     if (matchingVariants.length === 0) {
       grid.innerHTML = `
-        <div class="empty-stock-banner">
-          <div class="empty-stock-icon">✅</div>
-          <div class="empty-stock-title">ALL ITEMS HAVE SUFFICIENT STOCK!</div>
-          <div class="empty-stock-sub">
-            Walang low stock o out of stock na item. Mag-type o mag-scan ng barcode para mag-checkout.
-          </div>
+        <div class="card empty-placeholder-card" style="grid-column: 1 / -1;">
+          <i data-lucide="check-circle-2" style="color: var(--green-status);"></i>
+          <h3>ALL ITEMS HAVE SUFFICIENT STOCK!</h3>
+          <p>Walang low stock o out of stock na item. Mag-type o mag-scan ng barcode para mag-checkout.</p>
         </div>
       `;
+      refreshLucideIcons();
       return;
     }
   } else {
@@ -725,11 +875,13 @@ function renderSaleGrid() {
 
     if (matchingVariants.length === 0) {
       grid.innerHTML = `
-        <div class="empty-stock-banner" style="border-color:#cbd5e1; background:#ffffff;">
-          <div class="empty-stock-icon" style="background-color:#f1f5f9; color:#64748b;">🔍</div>
-          <div class="empty-stock-title" style="color:#0f172a;">NO MATCHING VARIANTS FOUND</div>
+        <div class="card empty-placeholder-card" style="grid-column: 1 / -1;">
+          <i data-lucide="search-x"></i>
+          <h3>NO MATCHING VARIANTS FOUND</h3>
+          <p>Subukang maghanap gamit ang ibang OEM, Part Name, o Variant Code.</p>
         </div>
       `;
+      refreshLucideIcons();
       return;
     }
   }
@@ -764,7 +916,7 @@ function renderSaleGrid() {
 
     card.innerHTML = `
       <div>
-        <div class="card-img-placeholder ${hasImages ? 'zoomable' : ''}" style="height:70px;">
+        <div class="card-img-placeholder ${hasImages ? 'zoomable' : ''}" style="height:80px;">
           ${renderCardMedia(master)}
         </div>
         <div class="item-title">${escapeHtml(pName)} - ${escapeHtml(master.oem)}</div>
@@ -803,7 +955,6 @@ function openConfirmSaleModal(batchCode) {
   const paymentSelectEl = document.getElementById('salePaymentMethodInput');
   if (paymentSelectEl) paymentSelectEl.value = 'CASH';
 
-  // Item Photos & Lightbox Trigger
   const images = master.images || master.image_urls || [];
   modalActiveImages = images;
 
@@ -813,7 +964,7 @@ function openConfirmSaleModal(batchCode) {
       galleryEl.style.display = 'flex';
       galleryEl.innerHTML = images.map((img, idx) => `
         <img src="${escapeHtml(img)}" 
-             style="width: 64px; height: 64px; object-fit: cover; border-radius: 6px; cursor: pointer; border: 2px solid #2563eb; transition: transform 0.2s;" 
+             style="width: 64px; height: 64px; object-fit: cover; border-radius: 6px; cursor: pointer; border: 2px solid #FF6600; transition: transform 0.2s;" 
              onclick="openLightbox(${idx})" 
              onmouseover="this.style.transform='scale(1.05)'" 
              onmouseout="this.style.transform='scale(1)'" 
@@ -826,7 +977,6 @@ function openConfirmSaleModal(batchCode) {
     }
   }
 
-  // Initial Editable Values (Min Price = Item Cost)
   const defaultPrice = Number(batch.price || 0);
   const itemCost = Number(batch.cost || 0);
   const priceInputEl = document.getElementById('salePriceInput');
@@ -868,7 +1018,6 @@ async function confirmDirectSale(event) {
   const qty = parseInt(document.getElementById('saleQtyInput').value, 10);
   const paymentMethod = document.getElementById('salePaymentMethodInput')?.value || 'CASH';
 
-  // Client-side Validations
   if (isNaN(sellingPrice) || sellingPrice <= 0) {
     alert('⚠️ Kailangang mas mataas sa ₱0.00 ang Selling Price!');
     document.getElementById('salePriceInput').focus();
@@ -945,7 +1094,6 @@ async function confirmDirectSale(event) {
 function renderSalesLog() {
   const selectedDate = document.getElementById('salesDateFilter').value || getTodayString();
 
-  // I-format at ipakita sa gitna ang napiling petsa (hal. Thursday, November 12)
   const dateDisplayEl = document.getElementById('salesLogSelectedDateDisplay');
   if (dateDisplayEl && selectedDate) {
     const [yr, mn, dy] = selectedDate.split('-').map(Number);
@@ -953,7 +1101,8 @@ function renderSalesLog() {
     dateDisplayEl.textContent = localDateObj.toLocaleDateString('en-US', {
       weekday: 'long',
       month: 'long',
-      day: 'numeric'
+      day: 'numeric',
+      year: 'numeric'
     });
   }
 
@@ -978,13 +1127,12 @@ function renderSalesLog() {
       costSum += cTotal;
       profitSum += pTotal;
 
-      // Payment Method Badge (CASH o G-CASH)
       const rawPay = (txn.paymentMethod || txn.payment_method || 'CASH').toString().trim().toUpperCase();
       const isGcash = rawPay === 'GCASH' || rawPay === 'G-CASH';
       const paymentLabel = isGcash ? 'G-CASH' : 'CASH';
       const paymentBadgeStyle = isGcash
-        ? 'background:#dbeafe; color:#1d4ed8; border:1px solid #93c5fd;'
-        : 'background:#dcfce7; color:#15803d; border:1px solid #86efac;';
+        ? 'background:#FFF7ED; color:#EA580C; border:1px solid #FDBA74;'
+        : 'background:#DCFCE7; color:#15803D; border:1px solid #86EFAC;';
 
       const items = txn.items || txn.transaction_items || [];
       items.forEach(i => {
@@ -1003,9 +1151,9 @@ function renderSalesLog() {
           <td style="text-align:center;">
             <span class="stock-badge" style="${paymentBadgeStyle}">${paymentLabel}</span>
           </td>
-          <td style="text-align:right; color:#ea580c;">₱${formatCurrency(cost * qty)}</td>
-          <td style="text-align:right; font-weight:bold; color:#2563eb;">₱${formatCurrency(price * qty)}</td>
-          <td style="text-align:right; font-weight:bold; color:#16a34a;">₱${formatCurrency((price - cost) * qty)}</td>
+          <td style="text-align:right; color:#64748B;">₱${formatCurrency(cost * qty)}</td>
+          <td style="text-align:right; font-weight:bold; color:#FF6600;">₱${formatCurrency(price * qty)}</td>
+          <td style="text-align:right; font-weight:bold; color:#16A34A;">₱${formatCurrency((price - cost) * qty)}</td>
         `;
         tbody.appendChild(tr);
       });
@@ -1016,7 +1164,7 @@ function renderSalesLog() {
   document.getElementById('salesCostTotal').textContent = `₱${formatCurrency(costSum)}`;
   document.getElementById('salesProfitTotal').textContent = `₱${formatCurrency(profitSum)}`;
   document.getElementById('salesTxnCount').textContent = formatNumber(filteredTxns.length);
-  document.getElementById('salesItemsCount').textContent = `${formatNumber(totalPcs)} total pcs sold`;
+  document.getElementById('salesItemsCount').textContent = `(${formatNumber(totalPcs)} pcs)`;
 }
 
 
@@ -1039,13 +1187,13 @@ function renderBreadcrumbs() {
   const container = document.getElementById('reportBreadcrumbs');
   if (!container) return;
 
-  let html = `<span class="${activeReportLevel === 'yearly' ? 'crumb-active' : 'crumb-item'}" onclick="goToYearlyView()">📊 Yearly (${currentSelectedYear})</span>`;
+  let html = `<span class="${activeReportLevel === 'yearly' ? 'crumb-active' : 'crumb-item'}" onclick="goToYearlyView()">Yearly (${currentSelectedYear})</span>`;
   if (activeReportLevel === 'monthly' || activeReportLevel === 'daily') {
     const mName = monthNames[parseInt(currentSelectedMonth, 10) - 1];
-    html += ` ➔ <span class="${activeReportLevel === 'monthly' ? 'crumb-active' : 'crumb-item'}" onclick="goToMonthlyView()">📆 ${mName} ${currentSelectedYear}</span>`;
+    html += ` ➔ <span class="${activeReportLevel === 'monthly' ? 'crumb-active' : 'crumb-item'}" onclick="goToMonthlyView()">${mName} ${currentSelectedYear}</span>`;
   }
   if (activeReportLevel === 'daily') {
-    html += ` ➔ <span class="crumb-active">📄 ${currentSelectedDate} Details</span>`;
+    html += ` ➔ <span class="crumb-active">${currentSelectedDate} Details</span>`;
   }
   container.innerHTML = html;
 }
@@ -1099,10 +1247,10 @@ function renderYearlyReport() {
     tr.innerHTML = `
       <td><strong>${monthNames[m - 1]} ${currentSelectedYear}</strong></td>
       <td style="text-align:center;">${formatNumber(mTxns.length)}</td>
-      <td style="text-align:right; color:#ea580c;">₱${formatCurrency(mCost)}</td>
-      <td style="text-align:right; font-weight:bold; color:#2563eb;">₱${formatCurrency(mSales)}</td>
-      <td style="text-align:right; font-weight:bold; color:#16a34a;">₱${formatCurrency(mProfit)}</td>
-      <td style="text-align:center;"><button class="btn btn-secondary" style="font-size:10px;">View ➔</button></td>
+      <td style="text-align:right; color:#64748B;">₱${formatCurrency(mCost)}</td>
+      <td style="text-align:right; font-weight:bold; color:#FF6600;">₱${formatCurrency(mSales)}</td>
+      <td style="text-align:right; font-weight:bold; color:#16A34A;">₱${formatCurrency(mProfit)}</td>
+      <td style="text-align:center;"><button class="btn btn-secondary btn-sm">View ➔</button></td>
     `;
     tbody.appendChild(tr);
   }
@@ -1121,7 +1269,7 @@ function handleMonthSelectChange() {
 function renderMonthlyReport() {
   renderBreadcrumbs();
   const mName = monthNames[parseInt(currentSelectedMonth, 10) - 1];
-  document.getElementById('monthlyTitleHeader').textContent = `📆 Monthly Breakdown — ${mName} ${currentSelectedYear}`;
+  document.getElementById('monthlyTitleHeader').textContent = `Monthly Breakdown — ${mName} ${currentSelectedYear}`;
 
   const tbody = document.getElementById('monthlyTableBody');
   if (!tbody) return;
@@ -1152,10 +1300,10 @@ function renderMonthlyReport() {
     tr.innerHTML = `
       <td><strong>${fullDate}</strong></td>
       <td style="text-align:center;">${formatNumber(dayTxns.length)}</td>
-      <td style="text-align:right; color:#ea580c;">₱${formatCurrency(dCost)}</td>
-      <td style="text-align:right; font-weight:bold; color:#2563eb;">₱${formatCurrency(dSales)}</td>
-      <td style="text-align:right; font-weight:bold; color:#16a34a;">₱${formatCurrency(dProfit)}</td>
-      <td style="text-align:center;">${dayTxns.length > 0 ? '<button class="btn btn-primary" style="font-size:10px;">Details ➔</button>' : '<span style="color:#94a3b8;">No Sales</span>'}</td>
+      <td style="text-align:right; color:#64748B;">₱${formatCurrency(dCost)}</td>
+      <td style="text-align:right; font-weight:bold; color:#FF6600;">₱${formatCurrency(dSales)}</td>
+      <td style="text-align:right; font-weight:bold; color:#16A34A;">₱${formatCurrency(dProfit)}</td>
+      <td style="text-align:center;">${dayTxns.length > 0 ? '<button class="btn btn-primary btn-sm">Details ➔</button>' : '<span style="color:#94a3b8;">No Sales</span>'}</td>
     `;
     tbody.appendChild(tr);
   }
@@ -1167,7 +1315,9 @@ function renderMonthlyReport() {
 
 function renderDailyReport() {
   renderBreadcrumbs();
-  document.getElementById('dailyTitleHeader').textContent = `📄 Daily Items Sales Log — ${currentSelectedDate}`;
+  document.getElementById('dailyTitleHeader').textContent = `Daily Items Sales Log — ${currentSelectedDate}`;
+  const subEl = document.getElementById('dailySubDateText');
+  if (subEl) subEl.textContent = `Detailed breakdown of items sold on ${currentSelectedDate}`;
 
   const tbody = document.getElementById('dailyTableBody');
   if (!tbody) return;
@@ -1199,9 +1349,9 @@ function renderDailyReport() {
           <td><strong>${escapeHtml(txn.time || '')}</strong><br><small>${escapeHtml(txn.txnNumber || txn.id || txn.transaction_id)}</small></td>
           <td>• ${escapeHtml(pName)} (${escapeHtml(oem)})</td>
           <td style="text-align:center; font-weight:bold;">${formatNumber(qty)}</td>
-          <td style="text-align:right; color:#ea580c;">₱${formatCurrency(cost * qty)}</td>
-          <td style="text-align:right; font-weight:bold; color:#2563eb;">₱${formatCurrency(price * qty)}</td>
-          <td style="text-align:right; font-weight:bold; color:#16a34a;">₱${formatCurrency((price - cost) * qty)}</td>
+          <td style="text-align:right; color:#64748B;">₱${formatCurrency(cost * qty)}</td>
+          <td style="text-align:right; font-weight:bold; color:#FF6600;">₱${formatCurrency(price * qty)}</td>
+          <td style="text-align:right; font-weight:bold; color:#16A34A;">₱${formatCurrency((price - cost) * qty)}</td>
         `;
         tbody.appendChild(tr);
       });
@@ -1277,7 +1427,7 @@ function toggleBoxPackagingFields() {
 function renderCardMedia(item) {
   const images = item.images || item.image_urls || [];
   if (images.length > 0) {
-    const badge = images.length > 1 ? `<span class="photo-count-badge">📷 ${formatNumber(images.length)}</span>` : '';
+    const badge = images.length > 1 ? `<span class="photo-count-badge">${formatNumber(images.length)} Photos</span>` : '';
     const imageSrc = String(images[0] || '');
     const safeImageSrc = /^(https:\/\/|data:image\/(png|jpeg|jpg|gif|webp);base64,)/i.test(imageSrc) ? escapeHtml(imageSrc) : '';
     return `<img src="${safeImageSrc}" alt="${escapeHtml(item.partName || item.part_name)}">${badge}`;
@@ -1396,7 +1546,7 @@ function openItemModal(index) {
       const bCode = batch.code || batch.variant_code;
       div.innerHTML = `
         <div class="batch-barcode-info">
-          <strong>${escapeHtml(bCode)}</strong> | ${escapeHtml(batch.supplier)}<br>
+          <strong style="color:#FF6600;">${escapeHtml(bCode)}</strong> | ${escapeHtml(batch.supplier)}<br>
           <span style="color:#16a34a; font-weight:700;">₱${formatCurrency(batch.price || 0)}</span>
         </div>
         <div style="text-align:right;"><svg id="${svgId}" class="barcode-svg"></svg></div>
@@ -1448,7 +1598,6 @@ function closeModalOnOverlay(e) {
   if (e.target.id === 'itemModal') closeModal();
 }
 
-// --- Fullscreen Lightbox Controls ---
 function openLightbox(index) {
   if (!modalActiveImages || modalActiveImages.length === 0) return;
   activeModalImgIndex = index;
@@ -1483,7 +1632,7 @@ function closeLightboxOnOverlay(e) {
 
 
 /* ============================================================================
-   12. CENTRAL INVENTORY, VARIANT CODING & RESTOCK MANAGEMENT
+   12. CENTRAL INVENTORY, VARIANT CODING, THERMAL PRINT & RESTOCK
    ============================================================================ */
 
 function buildStockBadgeHtml(batch, unitTypeLabel) {
@@ -1503,13 +1652,8 @@ function getMasterItemTotalStock(masterId) {
     .reduce((sum, b) => sum + Number(b.stock || 0), 0);
 }
 
-function openQuickAddMasterModal() {
-  switchView('view-master', document.querySelectorAll('.nav-item')[4]);
-  window.scrollTo({ top: 0, behavior: 'smooth' });
-}
-
 function goToInventoryAndRestock(batchCode) {
-  switchView('view-inventory', document.querySelectorAll('.nav-item')[5]);
+  switchView('view-inventory');
   const searchInput = document.getElementById('inventorySearch');
   if (searchInput) {
     searchInput.value = batchCode;
@@ -1540,7 +1684,6 @@ function closeRestockOnOverlay(e) {
   if (e.target.id === 'restockModal') closeRestockModal();
 }
 
-// --- Auto-Print Barcode Stickers Function (Code 128 for Thermal Sticker Printers) ---
 // --- Auto-Print Barcode Stickers Function (Returns Promise pagkatapos magsara ng Print Dialog) ---
 function printVariantBarcodes(batchCode, qty) {
   return new Promise((resolve) => {
@@ -1569,7 +1712,6 @@ function printVariantBarcodes(batchCode, qty) {
     const partTitle = `${master.partName || master.part_name || 'AUTO PART'} ${master.oem ? `(${master.oem})` : ''}`.trim();
     const priceText = encodePriceToLetters(batch.price || 0);
 
-    // 1. I-generate ang CODE128 SVG sa memory
     const tempSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     JsBarcode(tempSvg, barcodeValue, {
       format: 'CODE128',
@@ -1582,7 +1724,6 @@ function printVariantBarcodes(batchCode, qty) {
     });
     const svgMarkup = tempSvg.outerHTML;
 
-    // 2. Ulitin ang sticker template base sa dami ng idadagdag na stock
     const singleLabelHtml = `
       <div class="sticker-label">
         <div class="sticker-part">${escapeHtml(partTitle)}</div>
@@ -1595,7 +1736,6 @@ function printVariantBarcodes(batchCode, qty) {
     `;
     const allStickersHtml = Array(count).fill(singleLabelHtml).join('');
 
-    // 3. Gumamit ng hidden iframe para sa thermal sticker layout
     const existingFrame = document.getElementById('barcodePrintFrame');
     if (existingFrame) existingFrame.remove();
 
@@ -1617,71 +1757,29 @@ function printVariantBarcodes(batchCode, qty) {
       <head>
         <title>Print Barcodes - ${escapeHtml(barcodeValue)} (${count} pcs)</title>
         <style>
-          @page {
-            size: 50mm 30mm;
-            margin: 0;
-          }
-          * {
-            box-sizing: border-box;
-            font-family: Arial, Helvetica, sans-serif;
-          }
-          body {
-            margin: 0;
-            padding: 0;
-            background: #fff;
-          }
+          @page { size: 50mm 30mm; margin: 0; }
+          * { box-sizing: border-box; font-family: Arial, Helvetica, sans-serif; }
+          body { margin: 0; padding: 0; background: #fff; }
           .sticker-label {
-            width: 50mm;
-            height: 30mm;
-            padding: 2mm 3mm;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-            align-items: center;
-            text-align: center;
-            page-break-after: always;
-            break-after: page;
-            overflow: hidden;
+            width: 50mm; height: 30mm; padding: 2mm 3mm;
+            display: flex; flex-direction: column; justify-content: space-between;
+            align-items: center; text-align: center;
+            page-break-after: always; break-after: page; overflow: hidden;
           }
-          .sticker-label:last-child {
-            page-break-after: auto;
-            break-after: auto;
-          }
+          .sticker-label:last-child { page-break-after: auto; break-after: auto; }
           .sticker-part {
-            font-size: 7.5pt;
-            font-weight: 700;
-            color: #000;
-            width: 100%;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            text-transform: uppercase;
+            font-size: 7.5pt; font-weight: 700; color: #000; width: 100%;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: uppercase;
           }
-          .sticker-barcode svg {
-            max-width: 44mm;
-            max-height: 16mm;
-            display: block;
-          }
+          .sticker-barcode svg { max-width: 44mm; max-height: 16mm; display: block; }
           .sticker-footer {
-            width: 100%;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 7pt;
-            font-weight: 700;
-            color: #000;
-            border-top: 0.5pt solid #000;
-            padding-top: 1px;
+            width: 100%; display: flex; justify-content: space-between; align-items: center;
+            font-size: 7pt; font-weight: 700; color: #000; border-top: 0.5pt solid #000; padding-top: 1px;
           }
-          .sticker-price {
-            font-size: 8.5pt;
-            font-weight: 800;
-          }
+          .sticker-price { font-size: 8.5pt; font-weight: 800; }
         </style>
       </head>
-      <body>
-        ${allStickersHtml}
-      </body>
+      <body>${allStickersHtml}</body>
       </html>
     `);
     frameDoc.close();
@@ -1702,8 +1800,6 @@ function printVariantBarcodes(batchCode, qty) {
       win.onafterprint = finishPrintDialog;
       win.focus();
       win.print();
-
-      // Fallback sakaling hindi mag-trigger ang onafterprint sa ilang browser
       setTimeout(finishPrintDialog, 500);
     }, 150);
   });
@@ -1725,11 +1821,9 @@ document.getElementById('restockForm')?.addEventListener('submit', async functio
   if (submitBtn) submitBtn.disabled = true;
 
   try {
-    // 1. Buksan muna ang print preview BAGO magdagdag ng stock sa database
     const dialogOpened = await printVariantBarcodes(batchCode, addQty);
     if (!dialogOpened) return;
 
-    // 2. Kumpirmahin kung talagang natuloy ang pag-print (hindi kinansela)
     const isPrinted = confirm(
       `Na-print na ba ang ${formatNumber(addQty)} barcode sticker(s) para sa ${batchCode}?\n\n` +
       `• OK = Naka-print na (Idagdag na ang +${formatNumber(addQty)} stock)\n` +
@@ -1741,7 +1835,6 @@ document.getElementById('restockForm')?.addEventListener('submit', async functio
       return;
     }
 
-    // 3. Saka lang i-save sa PostgreSQL database kapag naka-print na
     await apiRequest(`/variants/${batchCode}/restock`, 'PATCH', { addQty });
     closeRestockModal();
     await loadProductionDataFromBackend();
@@ -1860,15 +1953,15 @@ function renderInventoryGrid() {
             </div>
           </div>
           <div class="master-row-actions">
-            <button class="btn btn-secondary" style="font-size:11px; padding:6px 12px;" onclick="openQuickCodingModal(${mId})">➕ New Variant</button>
+            <button class="btn btn-secondary btn-sm" onclick="openQuickCodingModal(${mId})">+ New Variant</button>
             <div style="text-align:right; cursor:pointer;" onclick="toggleInventoryBatchPanel('batchPanel_${mIdx}')">
               <span class="stock-badge ${totalStock > 0 ? 'stock-green' : 'stock-red'}">STOCK: ${formatNumber(totalStock)}</span>
-              <div style="font-size:11px; font-weight:700; color:#2563eb; margin-top:4px;">${formatNumber(batches.length)} VARIANT(S) ▼</div>
+              <div style="font-size:11px; font-weight:700; color:#FF6600; margin-top:4px;">${formatNumber(batches.length)} VARIANT(S) ▼</div>
             </div>
           </div>
         </div>
         <div id="batchPanel_${mIdx}" class="batch-expand-panel" style="display:none;">
-          <div class="batch-panel-title">🏷️ ASSOCIATED VARIANT CODINGS & BARCODES</div>
+          <div class="batch-panel-title">ASSOCIATED VARIANT CODINGS & BARCODES</div>
           <div id="batchGrid_${mIdx}" class="catalog-grid" style="margin-top:12px;"></div>
         </div>
       `;
@@ -1885,7 +1978,7 @@ function renderInventoryGrid() {
 
           bCard.innerHTML = `
             <div>
-              <div class="item-title" style="color:#2563eb;">${escapeHtml(bCode)}</div>
+              <div class="item-title" style="color:#FF6600;">${escapeHtml(bCode)}</div>
               <div class="item-subtitle" style="margin-bottom:6px;">SUPPLIER: ${escapeHtml(batch.supplier)}</div>
               <div class="barcode-card-box"><svg id="${svgId}" class="barcode-svg"></svg></div>
             </div>
@@ -1897,7 +1990,7 @@ function renderInventoryGrid() {
               <div style="text-align:right;">
                 <div>${badgeHtml}</div>
                 <div style="margin-top:6px; display:flex; gap:4px; justify-content:flex-end;">
-                  <button class="btn btn-primary" style="font-size:10px; padding:3px 8px;" onclick="openRestockModal('${escapeHtml(bCode)}')">➕ Add Stock</button>
+                  <button class="btn btn-primary btn-sm" style="font-size:11px; padding:4px 10px;" onclick="openRestockModal('${escapeHtml(bCode)}')">+ Add Stock</button>
                 </div>
               </div>
             </div>
@@ -1929,7 +2022,6 @@ function toggleInventoryBatchPanel(panelId) {
    13. SUPPLIER & USER MANAGEMENT + APP INITIALIZATION
    ============================================================================ */
 
-// --- Supplier Management ---
 async function renderSuppliersTable() {
   try {
     const res = await apiRequest('/suppliers', 'GET');
@@ -1953,7 +2045,7 @@ async function renderSuppliersTable() {
         <td>${escapeHtml(s.phone)}</td>
         <td>${escapeHtml(s.email)}</td>
         <td style="text-align:center;">
-          <button class="btn btn-danger" style="font-size:10px; padding:3px 8px;" onclick="deleteSupplier(${s.id})">🗑️ Delete</button>
+          <button class="btn btn-danger btn-sm" style="font-size:11px; padding:4px 10px;" onclick="deleteSupplier(${s.id})">Delete</button>
         </td>
       `;
       tbody.appendChild(tr);
@@ -2011,7 +2103,6 @@ function updateSupplierDropdowns() {
   if (currentVal) selectEl.value = currentVal;
 }
 
-// --- User Management ---
 function renderUsersTable() {
   const tbody = document.getElementById('usersTableBody');
   if (!tbody) return;
@@ -2025,7 +2116,7 @@ function renderUsersTable() {
       <td><strong>${escapeHtml(u.fullName || u.full_name)}</strong></td>
       <td><code>${escapeHtml(u.username)}</code></td>
       <td style="text-align:center;"><span class="stock-badge ${roleClass}">${escapeHtml(u.role)}</span></td>
-      <td style="text-align:center;">${u.role === 'ADMIN' ? '<small style="color:#94a3b8;">Protected</small>' : `<button class="btn btn-danger" style="font-size:10px; padding:2px 6px;" onclick="deleteSystemUser(${u.id})">🗑️ Delete</button>`}</td>
+      <td style="text-align:center;">${u.role === 'ADMIN' ? '<small style="color:#94a3b8;">Protected</small>' : `<button class="btn btn-danger btn-sm" style="font-size:11px; padding:4px 10px;" onclick="deleteSystemUser(${u.id})">Delete</button>`}</td>
     `;
     tbody.appendChild(tr);
   });
@@ -2075,6 +2166,8 @@ async function deleteSystemUser(userId) {
 
 // --- Application Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
+  refreshLucideIcons();
+  startLiveClock();
   const dateFilter = document.getElementById('salesDateFilter');
   if (dateFilter) dateFilter.value = getTodayString();
   restoreSessionOnReload();

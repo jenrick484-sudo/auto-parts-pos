@@ -3,248 +3,491 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Auto Parts POS - Per-Item Unique Variant System</title>
+  <title>Daiho Auto Parts Supply — POS & Inventory System</title>
   <link rel="stylesheet" href="css/style.css" />
-  <!-- External Libraries for Barcode Scanning, Barcode Rendering, and Analytics Charts -->
+  <!-- External Libraries for Barcode Scanning, Barcode Rendering, Charts & Lucide Icons -->
   <script src="https://unpkg.com/html5-qrcode" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
+  <script src="https://unpkg.com/lucide@latest" defer></script>
 </head>
 <body>
 
-  <!-- ========================================== -->
-  <!-- 1. HCI-ENHANCED FULLSCREEN LOGIN OVERLAY  -->
-  <!-- ========================================== -->
-  <div id="loginScreen" class="login-overlay">
-    <div class="login-card">
-      <div class="login-logo-icon">🚗</div>
-      <h1 class="login-title">DAIHO AUTO PARTS SUPPLY</h1>
-      <p class="login-sub">POS SYSTEM</p>
+  <!-- ==========================================================================
+       1. LOGIN OVERLAY (PRESERVED TWO-COLUMN COMMERCIAL AUTOMOTIVE DESIGN)
+       ========================================================================== -->
+  <div id="loginScreen" class="login-overlay" role="dialog" aria-modal="true" aria-labelledby="loginHeading">
+    <div class="login-split-layout">
 
-      <div id="loginErrorMsg" class="login-error-msg" role="alert" aria-live="assertive"></div>
+      <!-- LEFT SECTION: BRANDING & AUTOMOTIVE VISUAL PANEL -->
+      <aside class="login-brand-panel" aria-label="Daiho Auto Parts Supply Branding">
+        <div class="brand-geo-accent" aria-hidden="true"></div>
+        <div class="brand-geo-grid" aria-hidden="true"></div>
 
-      <form id="loginForm" onsubmit="handleLoginSubmit(event)" novalidate>
-        <div class="form-group">
-          <label for="loginUsernameInput">USERNAME</label>
-          <div class="input-with-icon">
-            <span class="field-icon">👤</span>
-            <input 
-              type="text" 
-              id="loginUsernameInput" 
-              placeholder="IPASOK ANG USERNAME" 
-              required 
-              autocomplete="username"
-            />
+        <div class="brand-panel-inner">
+          <div class="brand-identity">
+            <div class="brand-emblem" aria-hidden="true">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="9"></circle>
+                <circle cx="12" cy="12" r="3"></circle>
+                <line x1="12" y1="3" x2="12" y2="9"></line>
+                <line x1="4.2" y1="16.5" x2="9.4" y2="13.5"></line>
+                <line x1="19.8" y1="16.5" x2="14.6" y2="13.5"></line>
+              </svg>
+            </div>
+            <div class="brand-name-stack">
+              <span class="brand-name-main">DAIHO</span>
+              <span class="brand-name-sub">AUTO PARTS SUPPLY</span>
+            </div>
+          </div>
+
+          <div class="brand-visual-showcase" aria-hidden="true">
+            <svg class="automotive-vector" viewBox="0 0 420 220" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="210" cy="110" r="92" stroke="#292929" stroke-width="1.5" stroke-dasharray="6 6"/>
+              <circle cx="210" cy="110" r="68" stroke="#FF6600" stroke-opacity="0.28" stroke-width="1.5"/>
+              <path d="M52 142H78C82 126 96 115 113 115C130 115 144 126 148 142H268C272 126 286 115 303 115C320 115 334 126 338 142H368C374 142 378 137 377 131L371 106C369 98 363 92 355 90L302 79L254 46C247 41 238 39 229 39H146C134 39 123 44 115 53L84 87L56 95C48 97 43 104 43 112V133C43 138 47 142 52 142Z" fill="#292929" stroke="#3F3F46" stroke-width="1.5"/>
+              <path d="M126 85L146 53H226C233 53 239 55 245 59L281 85H126Z" fill="#1A1A1A" stroke="#FF6600" stroke-opacity="0.55" stroke-width="1.5"/>
+              <path d="M28 158H392" stroke="url(#orangeSpeedLine)" stroke-width="2.5" stroke-linecap="round"/>
+              <circle cx="113" cy="144" r="24" fill="#1A1A1A" stroke="#FF6600" stroke-width="2.5"/>
+              <circle cx="113" cy="144" r="10" fill="#292929" stroke="#737373" stroke-width="1.5"/>
+              <circle cx="303" cy="144" r="24" fill="#1A1A1A" stroke="#FF6600" stroke-width="2.5"/>
+              <circle cx="303" cy="144" r="10" fill="#292929" stroke="#737373" stroke-width="1.5"/>
+              <defs>
+                <linearGradient id="orangeSpeedLine" x1="28" y1="158" x2="392" y2="158" gradientUnits="userSpaceOnUse">
+                  <stop stop-color="#FF6600" stop-opacity="0"/>
+                  <stop offset="0.35" stop-color="#FF6600"/>
+                  <stop offset="0.75" stop-color="#EA580C"/>
+                  <stop offset="1" stop-color="#FF6600" stop-opacity="0"/>
+                </linearGradient>
+              </defs>
+            </svg>
+          </div>
+
+          <div class="brand-copy">
+            <div class="brand-accent-bar" aria-hidden="true"></div>
+            <h2 class="brand-tagline">DRIVE BETTER.<br><span>GO FURTHER.</span></h2>
+            <p class="brand-description">
+              Your trusted partner for quality automotive parts and reliable service.
+            </p>
           </div>
         </div>
+      </aside>
 
-        <div class="form-group">
-          <label for="loginPasswordInput">PASSWORD</label>
-          <div class="input-with-icon">
-            <span class="field-icon">🔒</span>
-            <input 
-              type="password" 
-              id="loginPasswordInput" 
-              placeholder="Ipasok ang Password" 
-              required 
-              autocomplete="current-password"
-            />
-            <button 
-              type="button" 
-              class="toggle-password-btn" 
-              onclick="togglePasswordVisibility()" 
-              title="Ipakita/Itago ang Password"
-              aria-label="Toggle Password Visibility"
-            >👁️</button>
+      <!-- RIGHT SECTION: CLEAN WHITE AUTHENTICATION PANEL -->
+      <main class="login-form-panel">
+        <div class="login-card">
+          <div class="mobile-brand-header">
+            <div class="brand-emblem mobile-emblem" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="9"></circle>
+                <circle cx="12" cy="12" r="3"></circle>
+                <line x1="12" y1="3" x2="12" y2="9"></line>
+                <line x1="4.2" y1="16.5" x2="9.4" y2="13.5"></line>
+                <line x1="19.8" y1="16.5" x2="14.6" y2="13.5"></line>
+              </svg>
+            </div>
+            <div>
+              <div class="mobile-brand-title">DAIHO AUTO PARTS SUPPLY</div>
+              <div class="mobile-brand-sub">POS SYSTEM</div>
+            </div>
           </div>
-        </div>
 
-        <button type="submit" id="loginSubmitBtn" class="btn btn-login-primary">
-          <span class="btn-text">MAG-LOGIN</span>
-        </button>
-      </form>
+          <header class="login-card-header">
+            <h1 id="loginHeading" class="login-title">Welcome Customers</h1>
+            <p class="login-sub">Sign in to access your Daiho POS dashboard.</p>
+          </header>
+
+          <div id="loginErrorMsg" class="login-error-msg" role="alert" aria-live="assertive"></div>
+
+          <form id="loginForm" class="login-form" onsubmit="handleLoginSubmit(event)" novalidate>
+            <div class="form-group">
+              <label for="loginUsernameInput">Username</label>
+              <div class="input-with-icon">
+                <span class="field-icon" aria-hidden="true">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                </span>
+                <input
+                  type="text"
+                  id="loginUsernameInput"
+                  placeholder="Enter your username"
+                  required
+                  autocomplete="username"
+                  autocapitalize="none"
+                  spellcheck="false"
+                />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="loginPasswordInput">Password</label>
+              <div class="input-with-icon">
+                <span class="field-icon" aria-hidden="true">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                  </svg>
+                </span>
+                <input
+                  type="password"
+                  id="loginPasswordInput"
+                  placeholder="Enter your password"
+                  required
+                  autocomplete="current-password"
+                />
+                <button
+                  type="button"
+                  id="togglePasswordBtn"
+                  class="toggle-password-btn"
+                  onclick="togglePasswordVisibility()"
+                  title="Show or hide password"
+                  aria-label="Show password"
+                  aria-pressed="false"
+                >
+                  <i id="pwdEyeIcon" data-lucide="eye"></i>
+                </button>
+              </div>
+            </div>
+
+            <div class="login-options-row">
+              <label class="remember-checkbox-label" for="rememberUsernameCheckbox">
+                <input type="checkbox" id="rememberUsernameCheckbox" />
+                <span>Remember my username</span>
+              </label>
+            </div>
+
+            <button type="submit" id="loginSubmitBtn" class="btn-login-primary">
+              <span class="btn-text">SIGN IN TO WORKSPACE</span>
+            </button>
+          </form>
+
+          <footer class="login-card-footer">
+            <p class="footer-company">DAIHO AUTO PARTS SUPPLY</p>
+            <p class="footer-system">POS MANAGEMENT SYSTEM</p>
+          </footer>
+        </div>
+      </main>
+
     </div>
   </div>
 
-  <!-- ========================================== -->
-  <!-- 2. MAIN APPLICATION LAYOUT (SIDEBAR & NAV) -->
-  <!-- ========================================== -->
-  <div class="sidebar">
+  <!-- Mobile Sidebar Backdrop -->
+  <div id="mobileSidebarBackdrop" class="mobile-backdrop" onclick="closeMobileSidebar()"></div>
+
+  <!-- ==========================================================================
+       2. MAIN APPLICATION SIDEBAR (OPERATIONS + RECORDS & ADMIN)
+       ========================================================================== -->
+  <aside id="appSidebar" class="sidebar">
     <div class="sidebar-header">
-      ⚙️ AUTO PARTS POS
-      <span>Per-Item Variant System</span>
-    </div>
-    <ul class="sidebar-menu">
-      <li class="nav-item active" onclick="switchView('view-dashboard', this)">📊 Executive Overview</li>
-      <li class="nav-item" onclick="switchView('view-sale', this)">🛒 Point of Sale (POS)</li>
-      <li class="nav-item" onclick="switchView('view-sales-log', this)">🧾 Daily Sales Log</li>
-      <li class="nav-item" onclick="switchView('view-reports', this)">📈 Financial Reports</li>
-      <li class="nav-item" onclick="switchView('view-master', this)">📦 Register Master Item</li>
-      <li class="nav-item" onclick="switchView('view-inventory', this)">🔍 Central Inventory</li>
-      <li class="nav-item" onclick="switchView('view-suppliers', this)">🚚 Suppliers</li>
-      <li class="nav-item" onclick="switchView('view-users', this)">👥 System Users</li>
-      
-    </ul>
-  </div>
-
-  <div class="main-wrapper">
-    <!-- TOP NAVBAR -->
-    <div class="top-navbar">
-      <h2 id="pageTitle">Executive Overview Dashboard</h2>
-      <div class="user-profile-badge">
-        <span id="activeUserFullName">User Account</span>
-        <span id="activeUserRoleBadge" class="role-pill">ROLE</span>
-        <button class="btn btn-secondary" onclick="handleLogout()" style="font-size:11px; padding:4px 10px;">Logout</button>
+      <div class="sidebar-brand">
+        <div class="sidebar-logo-mark">D</div>
+        <div class="sidebar-brand-text">
+          <span class="sidebar-title">DAIHO</span>
+          <span class="sidebar-subtitle">AUTO PARTS SUPPLY</span>
+        </div>
       </div>
+      <button type="button" class="sidebar-collapse-btn" onclick="toggleDesktopSidebar()" title="Collapse sidebar">
+        <i data-lucide="panel-left-close"></i>
+      </button>
     </div>
 
-    <!-- CONTENT AREA (SINGLE PAGE VIEWS) -->
-    <div class="content-area">
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">OPERATIONS</div>
+      <ul class="sidebar-menu">
+        <li class="nav-item active" data-view="view-dashboard" onclick="switchView('view-dashboard', this)">
+          <i data-lucide="layout-dashboard"></i>
+          <span class="nav-label">DASHBOARD</span>
+        </li>
+        <li class="nav-item" data-view="view-sale" onclick="switchView('view-sale', this)">
+          <i data-lucide="shopping-cart"></i>
+          <span class="nav-label">POINT OF SALE</span>
+        </li>
+        <li class="nav-item" data-view="view-master" onclick="switchView('view-master', this)">
+          <i data-lucide="package-plus"></i>
+          <span class="nav-label">MASTER ITEM</span>
+        </li>
+        <li class="nav-item" data-view="view-inventory" onclick="switchView('view-inventory', this)">
+          <i data-lucide="boxes"></i>
+          <span class="nav-label">INVENTORY</span>
+        </li>
+      </ul>
+
+      <div class="nav-section-label">RECORDS & ADMIN</div>
+      <ul class="sidebar-menu">
+        <li class="nav-item" data-view="view-sales-log" onclick="switchView('view-sales-log', this)">
+          <i data-lucide="receipt"></i>
+          <span class="nav-label">SALES LOG</span>
+        </li>
+        <li class="nav-item" data-view="view-reports" onclick="switchView('view-reports', this)">
+          <i data-lucide="bar-chart-3"></i>
+          <span class="nav-label">FINANCIAL REPORTS</span>
+        </li>
+        <li class="nav-item" data-view="view-suppliers" onclick="switchView('view-suppliers', this)">
+          <i data-lucide="truck"></i>
+          <span class="nav-label">SUPPLIERS</span>
+        </li>
+        <li class="nav-item" data-view="view-users" onclick="switchView('view-users', this)">
+          <i data-lucide="users"></i>
+          <span class="nav-label">SYSTEM USERS</span>
+        </li>
+      </ul>
+    </nav>
+
+    <div class="sidebar-footer">
+      <button type="button" class="nav-logout-btn" onclick="handleLogout()">
+        <i data-lucide="log-out"></i>
+        <span class="nav-label">Sign Out</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ==========================================================================
+       3. MAIN WORKSPACE WRAPPER & TOPBAR
+       ========================================================================== -->
+  <div class="main-wrapper">
+    <header class="top-navbar">
+      <div class="topbar-left">
+        <button type="button" class="mobile-menu-btn" onclick="openMobileSidebar()" aria-label="Open menu">
+          <i data-lucide="menu"></i>
+        </button>
+        <div>
+          <div class="topbar-breadcrumb">
+            <span>DAIHO</span>
+            <i data-lucide="chevron-right"></i>
+            <span id="breadcrumbCurrent">Dashboard</span>
+          </div>
+          <h2 id="pageTitle" class="topbar-title">Overview Dashboard</h2>
+        </div>
+      </div>
+
+      <div class="topbar-search">
+        <i data-lucide="search" class="topbar-search-icon"></i>
+        <input
+          type="text"
+          id="globalQuickSearchInput"
+          placeholder="Quick search part, OEM, or supplier coding (Enter)..."
+          onkeydown="handleGlobalSearchKey(event)"
+        />
+      </div>
+
+      <div class="topbar-right">
+        <div id="liveDateTimeDisplay" class="live-clock-pill">--</div>
+        <button type="button" class="icon-badge-btn" onclick="switchView('view-inventory')" title="Stock Alerts">
+          <i data-lucide="bell"></i>
+          <span id="topbarAlertDot" class="alert-dot" style="display:none;">0</span>
+        </button>
+        <div class="user-profile-pill">
+          <div id="activeUserInitials" class="user-avatar-circle">DH</div>
+          <div class="user-meta">
+            <span id="activeUserFullName" class="user-name">User Account</span>
+            <span id="activeUserRoleBadge" class="role-badge">ROLE</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- ========================================================================
+         4. CONTENT AREA (ORIGINAL STRUCTURE & FLOW WITH MATTE BLACK & ORANGE UI)
+         ======================================================================== -->
+    <main class="content-area">
 
       <!-- VIEW 1: EXECUTIVE DASHBOARD -->
-      <div id="view-dashboard" class="view-content active">
-        <div class="dashboard-kpi-grid">
-          <div class="kpi-card green">
-            <div class="kpi-title">TODAY'S GROSS SALES</div>
-            <div id="dashTodaySales" class="kpi-value">₱0.00</div>
-            <div class="kpi-subtext">Kabuuan ng Benta Ngayon</div>
-          </div>
-          <div class="kpi-card green">
-            <div class="kpi-title">TODAY'S NET PROFIT</div>
-            <div id="dashTodayProfit" class="kpi-value">₱0.00</div>
-            <div class="kpi-subtext">Malinis na Tubo Ngayon</div>
-          </div>
-          <div class="kpi-card red">
-            <div class="kpi-title">STOCK ALERT WARNINGS</div>
-            <div id="dashLowStockCount" class="kpi-value">0 Items</div>
-            <div id="dashOutStockSub" class="kpi-subtext">0 Out of Stock | 0 Low Stock</div>
-          </div>
-          <div class="kpi-card blue">
-            <div class="kpi-title">TOTAL INVENTORY VALUATION</div>
-            <div id="dashAssetValuation" class="kpi-value">₱0.00</div>
-            <div id="dashTotalItemsCount" class="kpi-subtext">0 Items Registered</div>
-          </div>
-        </div>
-
-        <div class="launchpad-grid">
-          <div class="launch-btn" onclick="switchView('view-sale', document.querySelectorAll('.nav-item')[1])">
-            <span class="launch-icon">🛒</span>
-            <span class="launch-label">Open Checkout POS</span>
-            <span class="launch-desc">Scan or search variants for cash sale</span>
-          </div>
-          <div class="launch-btn" onclick="switchView('view-inventory', document.querySelectorAll('.nav-item')[5])">
-            <span class="launch-icon">🔍</span>
-            <span class="launch-label">Central Inventory</span>
-            <span class="launch-desc">Check stocks, restock & barcodes</span>
-          </div>
-          <div class="launch-btn" onclick="switchView('view-master', document.querySelectorAll('.nav-item')[4])">
-            <span class="launch-icon">📦</span>
-            <span class="launch-label">New Master Item</span>
-            <span class="launch-desc">Register new part OEM & specifications</span>
-          </div>
-          <div class="launch-btn" onclick="switchView('view-reports', document.querySelectorAll('.nav-item')[3])">
-            <span class="launch-icon">📈</span>
-            <span class="launch-label">Financial Analytics</span>
-            <span class="launch-desc">Drill-down yearly, monthly & daily logs</span>
-          </div>
-        </div>
-
-        <div class="charts-two-col">
-          <div class="card">
-            <div class="card-title-bar">
-              <span class="card-title">📊 Monthly Performance Trends</span>
+      <section id="view-dashboard" class="view-content active">
+        <div class="kpi-four-grid">
+          <div class="kpi-card accent-orange">
+            <div class="kpi-top">
+              <span class="kpi-label">TODAY'S GROSS SALES</span>
+              <i data-lucide="banknote" class="kpi-icon orange"></i>
             </div>
-            <div class="chart-container-box">
+            <div id="dashTodaySales" class="kpi-value">₱0.00</div>
+            <div class="kpi-sub">Kabuuan ng Benta Ngayon</div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-top">
+              <span class="kpi-label">TODAY'S NET PROFIT</span>
+              <i data-lucide="trending-up" class="kpi-icon green"></i>
+            </div>
+            <div id="dashTodayProfit" class="kpi-value text-green">₱0.00</div>
+            <div class="kpi-sub">Malinis na Tubo Ngayon</div>
+          </div>
+
+          <div class="kpi-card accent-red">
+            <div class="kpi-top">
+              <span class="kpi-label">STOCK ALERT WARNINGS</span>
+              <i data-lucide="alert-triangle" class="kpi-icon red"></i>
+            </div>
+            <div id="dashLowStockCount" class="kpi-value text-red">0 Items</div>
+            <div id="dashOutStockSub" class="kpi-sub">0 Out of Stock | 0 Low Stock</div>
+          </div>
+
+          <div class="kpi-card">
+            <div class="kpi-top">
+              <span class="kpi-label">TOTAL INVENTORY VALUATION</span>
+              <i data-lucide="layers" class="kpi-icon"></i>
+            </div>
+            <div id="dashAssetValuation" class="kpi-value">₱0.00</div>
+            <div id="dashTotalItemsCount" class="kpi-sub">0 Items Registered</div>
+          </div>
+        </div>
+
+        <div class="quick-actions-strip" style="grid-template-columns: repeat(4, 1fr);">
+          <button type="button" class="quick-action-card primary-action" onclick="switchView('view-sale')">
+            <i data-lucide="shopping-cart"></i>
+            <div>
+              <strong>Open Checkout POS</strong>
+              <span>Scan or search variants for sale</span>
+            </div>
+          </button>
+          <button type="button" class="quick-action-card" onclick="switchView('view-inventory')">
+            <i data-lucide="boxes"></i>
+            <div>
+              <strong>Central Inventory</strong>
+              <span>Check stocks, restock & barcodes</span>
+            </div>
+          </button>
+          <button type="button" class="quick-action-card" onclick="switchView('view-master')">
+            <i data-lucide="package-plus"></i>
+            <div>
+              <strong>New Master Item</strong>
+              <span>Register new part OEM & specs</span>
+            </div>
+          </button>
+          <button type="button" class="quick-action-card" onclick="switchView('view-reports')">
+            <i data-lucide="bar-chart-3"></i>
+            <div>
+              <strong>Financial Analytics</strong>
+              <span>Drill-down yearly, monthly & daily</span>
+            </div>
+          </button>
+        </div>
+
+        <div class="dashboard-charts-grid">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h3 class="card-title">Monthly Performance Trends</h3>
+                <p class="card-subtitle">Gross sales performance over time</p>
+              </div>
+            </div>
+            <div class="chart-box">
               <canvas id="salesTrendChart"></canvas>
             </div>
           </div>
+
           <div class="card">
-            <div class="card-title-bar">
-              <span class="card-title">🏷 Top Selling Items Share</span>
+            <div class="card-header">
+              <div>
+                <h3 class="card-title">Top Selling Items Share</h3>
+                <p class="card-subtitle">Units sold distribution</p>
+              </div>
             </div>
-            <div class="chart-container-box">
+            <div class="chart-box">
               <canvas id="brandShareChart"></canvas>
             </div>
           </div>
         </div>
 
-        <div class="charts-two-col">
-          <div class="card" style="margin-bottom:0;">
-            <div class="card-title-bar">
-              <span class="card-title" style="color:#ef4444;">⚠️ Critical Reorder List</span>
-              <button class="btn btn-secondary" style="font-size:11px; padding:4px 8px;" onclick="switchView('view-inventory', document.querySelectorAll('.nav-item')[5])">View All</button>
+        <div class="dashboard-tables-grid">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h3 class="card-title text-red">Critical Reorder List</h3>
+                <p class="card-subtitle">Variants at or below stock limit</p>
+              </div>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="switchView('view-inventory')">View All</button>
             </div>
-            <table class="report-table">
-              <thead>
-                <tr>
-                  <th>Variant Code</th>
-                  <th>Item / OEM</th>
-                  <th style="text-align:center;">Stock</th>
-                  <th style="text-align:center;">Action</th>
-                </tr>
-              </thead>
-              <tbody id="dashReorderTableBody"></tbody>
-            </table>
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Variant Code</th>
+                    <th>Item / OEM</th>
+                    <th class="text-center">Stock</th>
+                    <th class="text-center">Action</th>
+                  </tr>
+                </thead>
+                <tbody id="dashReorderTableBody"></tbody>
+              </table>
+            </div>
           </div>
-          <div class="card" style="margin-bottom:0;">
-            <div class="card-title-bar">
-              <span class="card-title">🧾 Recent Checkout Activity</span>
-              <button class="btn btn-secondary" style="font-size:11px; padding:4px 8px;" onclick="switchView('view-sales-log', document.querySelectorAll('.nav-item')[2])">Full Log</button>
+
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h3 class="card-title">Recent Checkout Activity</h3>
+                <p class="card-subtitle">Latest POS sales transactions</p>
+              </div>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="switchView('view-sales-log')">Full Log</button>
             </div>
-            <table class="report-table">
-              <thead>
-                <tr>
-                  <th>Time / Txn</th>
-                  <th style="text-align:right;">Amount</th>
-                </tr>
-              </thead>
-              <tbody id="dashRecentSalesBody"></tbody>
-            </table>
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Time / Txn</th>
+                    <th class="text-right">Amount</th>
+                  </tr>
+                </thead>
+                <tbody id="dashRecentSalesBody"></tbody>
+              </table>
+            </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      <!-- VIEW 2: POINT OF SALE (POS) CHECKOUT -->
-      <div id="view-sale" class="view-content">
-        
-        <!-- 4 SUB-NAVIGATION BUTTONS -->
-        <div class="sale-subnav-bar" style="display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; flex-wrap: wrap;">
-          <button class="btn btn-primary sale-subtab-btn active" onclick="switchSaleSubView('subview-sales-scan', this)">
-            🏷️ Sales (with barcode / scan)
+      <!-- VIEW 2: POINT OF SALE (POS) — 5 SUB-VIEWS, NO CART, DIRECT SALE MODAL -->
+      <section id="view-sale" class="view-content">
+
+        <!-- 5 SUB-NAVIGATION BUTTONS -->
+        <div class="pos-subnav">
+          <button type="button" class="pos-tab-btn sale-subtab-btn active" onclick="switchSaleSubView('subview-sales-scan', this)">
+            <i data-lucide="scan-barcode"></i> Sales (with barcode / scan)
           </button>
-          <button class="btn btn-secondary sale-subtab-btn" onclick="switchSaleSubView('subview-charge', this)">
-            📋 Charge (Utang)
+          <button type="button" class="pos-tab-btn sale-subtab-btn" onclick="switchSaleSubView('subview-charge', this)">
+            <i data-lucide="file-text"></i> Charge (Utang)
           </button>
-          <button class="btn btn-secondary sale-subtab-btn" onclick="switchSaleSubView('subview-assorted', this)">
-            📦 Assorted (no barcode)
+          <button type="button" class="pos-tab-btn sale-subtab-btn" onclick="switchSaleSubView('subview-assorted', this)">
+            <i data-lucide="package"></i> Assorted (no barcode)
           </button>
-          <button class="btn btn-secondary sale-subtab-btn" onclick="switchSaleSubView('subview-refund', this)">
-            🔄 Refund
+          <button type="button" class="pos-tab-btn sale-subtab-btn" onclick="switchSaleSubView('subview-refund', this)">
+            <i data-lucide="rotate-ccw"></i> Refund
           </button>
-          <button type="button" class="btn btn-secondary sale-subtab-btn" onclick="switchSaleSubView('sale-subview-payor', this)">
-            🧾 Payor
+          <button type="button" class="pos-tab-btn sale-subtab-btn" onclick="switchSaleSubView('sale-subview-payor', this)">
+            <i data-lucide="receipt"></i> Payor
           </button>
         </div>
 
-        <!-- VIEW 1: SALES (WITH BARCODE / SCAN) - INALIS NA ANG CART -->
+        <!-- SUBVIEW 1: SALES (WITH BARCODE / SCAN) — WALANG CART, LOW/OUT-OF-STOCK ITEMS VISIBLE -->
         <div id="subview-sales-scan" class="sale-subview-content" style="display: block;">
           <div class="card">
-            <div class="card-title-bar">
-              <div class="card-title">🔍 Scan Barcode or Search Item / Variant</div>
-              <button type="button" id="camToggleBtn" class="btn btn-primary" onclick="toggleCameraScanner()">
-                📷 Open Live Camera Scanner
+            <div class="card-header">
+              <div>
+                <h3 class="card-title">Scan Barcode or Search Item / Variant</h3>
+                <p class="card-subtitle">Ipinapakita dito ang mga variants na pasok sa stock limit (equal or less than stock limit) o na-scan sa barcode</p>
+              </div>
+              <button type="button" id="camToggleBtn" class="btn btn-primary btn-sm" onclick="toggleCameraScanner()">
+                <i data-lucide="camera"></i> Open Live Camera Scanner
               </button>
             </div>
 
             <!-- LIVE CAMERA SCANNER CONTAINER -->
-            <div id="interactive-camera-wrapper">
+            <div id="interactive-camera-wrapper" class="camera-box">
               <div id="reader"></div>
-              <p style="color:#cbd5e1; font-size:12px; margin-top:8px;">Itapat ang barcode sa harap ng camera...</p>
+              <p>Itapat ang barcode sa harap ng camera...</p>
             </div>
 
-            <div class="search-container">
-              <span class="search-icon">🔍</span>
-              <input type="text" id="saleSearchInput" class="search-input" placeholder="SCAN BARCODE OR SEARCH ITEM / OEM / BRAND / VARIANT..." onkeydown="handleSaleBarcodeKey(event)" oninput="renderSaleGrid()" autofocus>
+            <div class="pos-search-bar">
+              <i data-lucide="search" class="pos-search-icon"></i>
+              <input
+                type="text"
+                id="saleSearchInput"
+                placeholder="SCAN BARCODE OR SEARCH ITEM / OEM / BRAND / VARIANT..."
+                onkeydown="handleSaleBarcodeKey(event)"
+                oninput="renderSaleGrid()"
+                autofocus
+              />
             </div>
 
             <div class="catalog-grid" id="saleCatalogGrid">
@@ -253,150 +496,152 @@
           </div>
         </div>
 
-        <!-- VIEW 2: CHARGE (UTANG) - EMPTY PLACEHOLDER -->
+        <!-- SUBVIEW 2: CHARGE (UTANG) - EMPTY PLACEHOLDER -->
         <div id="subview-charge" class="sale-subview-content" style="display: none;">
-          <div class="card" style="text-align: center; padding: 40px; color: #64748b;">
-            <div style="font-size: 32px; margin-bottom: 10px;">📋</div>
-            <h3 style="color: #0f172a; margin-bottom: 6px;">Charge (Utang) Module</h3>
-            <p style="font-size: 13px;">Empty muna ang view na ito. Dito natin ilalagay ang mga features para sa Utang transactions.</p>
+          <div class="card empty-placeholder-card">
+            <i data-lucide="file-text"></i>
+            <h3>Charge (Utang) Module</h3>
+            <p>Empty muna ang view na ito. Dito natin ilalagay ang mga features para sa Utang transactions.</p>
           </div>
         </div>
 
-        <!-- VIEW 3: ASSORTED (NO BARCODE) - EMPTY PLACEHOLDER -->
+        <!-- SUBVIEW 3: ASSORTED (NO BARCODE) - EMPTY PLACEHOLDER -->
         <div id="subview-assorted" class="sale-subview-content" style="display: none;">
-          <div class="card" style="text-align: center; padding: 40px; color: #64748b;">
-            <div style="font-size: 32px; margin-bottom: 10px;">📦</div>
-            <h3 style="color: #0f172a; margin-bottom: 6px;">Assorted Items (No Barcode) Module</h3>
-            <p style="font-size: 13px;">Empty muna ang view na ito. Dito natin ilalagay ang mga piyesang walang barcode at custom pricing.</p>
+          <div class="card empty-placeholder-card">
+            <i data-lucide="package"></i>
+            <h3>Assorted Items (No Barcode) Module</h3>
+            <p>Empty muna ang view na ito. Dito natin ilalagay ang mga piyesang walang barcode at custom pricing.</p>
           </div>
         </div>
 
-        <!-- VIEW 4: REFUND - EMPTY PLACEHOLDER -->
+        <!-- SUBVIEW 4: REFUND - EMPTY PLACEHOLDER -->
         <div id="subview-refund" class="sale-subview-content" style="display: none;">
-          <div class="card" style="text-align: center; padding: 40px; color: #64748b;">
-            <div style="font-size: 32px; margin-bottom: 10px;">🔄</div>
-            <h3 style="color: #0f172a; margin-bottom: 6px;">Refund & Return Module</h3>
-            <p style="font-size: 13px;">Empty muna ang view na ito. Dito natin ilalagay ang refund at return item logic.</p>
+          <div class="card empty-placeholder-card">
+            <i data-lucide="rotate-ccw"></i>
+            <h3>Refund & Return Module</h3>
+            <p>Empty muna ang view na ito. Dito natin ilalagay ang refund at return item logic.</p>
           </div>
         </div>
 
-        <!-- VIEW 5: PAYOR (EMPTY PLACEHOLDER) -->
+        <!-- SUBVIEW 5: PAYOR - EMPTY PLACEHOLDER -->
         <div id="sale-subview-payor" class="sale-subview-content" style="display: none;">
-          <div class="card" style="text-align: center; padding: 48px 20px; border: 1px dashed #cbd5e1; background: #f8fafc;">
-            <div style="font-size: 32px; margin-bottom: 10px;">🧾</div>
-            <h3 style="margin: 0 0 6px; color: #0f172a;">VIEW 5: PAYOR</h3>
-            <p style="margin: 0; color: #64748b; font-size: 13px;">
-              Empty placeholder — dito ilalagay ang module para sa Payor records at payments.
-            </p>
+          <div class="card empty-placeholder-card">
+            <i data-lucide="receipt"></i>
+            <h3>Payor Module</h3>
+            <p>Empty placeholder — dito ilalagay ang module para sa Payor records at payments.</p>
           </div>
         </div>
 
-      </div>
+      </section>
 
       <!-- VIEW 3: DAILY SALES & RECEIPTS LOG -->
-      <div id="view-sales-log" class="view-content">
+      <section id="view-sales-log" class="view-content">
         <div class="card">
-          <div class="card-title-bar">
-            <span class="card-title">🧾 Daily Sales & Receipts Log</span>
-            <div id="salesLogSelectedDateDisplay" style="text-align: center; font-size: 16px; font-weight: 700; color: #0f172a; margin: 18px 0 12px; letter-spacing: 0.3px;"></div>
-            <div style="display:flex; align-items:center; gap:8px;">
+          <div class="card-header">
+            <div>
+              <h3 class="card-title">Daily Sales & Receipts Log</h3>
+              <div id="salesLogSelectedDateDisplay" class="card-subtitle"></div>
+            </div>
+            <div class="header-actions">
               <label for="salesDateFilter" style="margin:0;">Filter Date:</label>
-              <input type="date" id="salesDateFilter" style="width:auto;" onchange="renderSalesLog()" />
+              <input type="date" id="salesDateFilter" class="filter-input" onchange="renderSalesLog()" />
             </div>
           </div>
 
-          <div class="report-summary-grid">
-            <div class="report-card">
-              <div class="report-card-title">Total Gross Sales</div>
-              <div id="salesGrossTotal" class="report-card-value text-blue">₱0.00</div>
-              <div class="report-card-sub">Kabuuan ng Naitabong Benta</div>
+          <div class="kpi-four-grid">
+            <div class="mini-stat-card">
+              <span>Total Gross Sales</span>
+              <strong id="salesGrossTotal" class="text-orange">₱0.00</strong>
+              <small style="color:#64748B;display:block;margin-top:4px;">Kabuuan ng Naitalang Benta</small>
             </div>
-            <div class="report-card">
-              <div class="report-card-title">Total Investment (Cost)</div>
-              <div id="salesCostTotal" class="report-card-value text-orange">₱0.00</div>
-              <div class="report-card-sub">Puhunan sa mga Nabentang Piyesa</div>
+            <div class="mini-stat-card">
+              <span>Total Investment (Cost)</span>
+              <strong id="salesCostTotal">₱0.00</strong>
+              <small style="color:#64748B;display:block;margin-top:4px;">Puhunan sa Nabentang Piyesa</small>
             </div>
-            <div class="report-card">
-              <div class="report-card-title">Net Profit (Tubo)</div>
-              <div id="salesProfitTotal" class="report-card-value text-green">₱0.00</div>
-              <div class="report-card-sub">Malinis na Kita (Sales - Cost)</div>
+            <div class="mini-stat-card">
+              <span>Net Profit (Tubo)</span>
+              <strong id="salesProfitTotal" class="text-green">₱0.00</strong>
+              <small style="color:#64748B;display:block;margin-top:4px;">Malinis na Kita (Sales - Cost)</small>
             </div>
-            <div class="report-card">
-              <div class="report-card-title">Total Transactions</div>
-              <div id="salesTxnCount" class="report-card-value">0</div>
-              <div id="salesItemsCount" class="report-card-sub">0 total pcs sold</div>
+            <div class="mini-stat-card">
+              <span>Total Transactions</span>
+              <div><strong id="salesTxnCount">0</strong> <small id="salesItemsCount">(0 pcs)</small></div>
+              <small style="color:#64748B;display:block;margin-top:4px;">Bilang ng Transaksyon</small>
             </div>
           </div>
 
-          <table class="report-table">
-            <thead>
-              <tr>
-                <th>Time / Txn ID</th>
-                <th>Item / Part Details</th>
-                <th style="text-align:center;">Qty</th>
-                <th style="text-align:center;">Payment</th>
-                <th style="text-align:right;">Cost</th>
-                <th style="text-align:right;">Total Sales</th>
-                <th style="text-align:right;">Profit</th>
-              </tr>
-            </thead>
-            <tbody id="salesLogTableBody">
-              <tr><td colspan="6" style="text-align:center; color:#94a3b8; padding:20px;">Walang naitalang benta sa napiling petsa.</td></tr>
-            </tbody>
-          </table>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Time / Txn ID</th>
+                  <th>Item / Part Details</th>
+                  <th class="text-center">Qty</th>
+                  <th class="text-center">Payment</th>
+                  <th class="text-right">Cost</th>
+                  <th class="text-right">Total Sales</th>
+                  <th class="text-right">Profit</th>
+                </tr>
+              </thead>
+              <tbody id="salesLogTableBody">
+                <tr><td colspan="7" class="text-center" style="color:#64748B; padding:20px;">Walang naitalang benta sa napiling petsa.</td></tr>
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      </section>
 
       <!-- VIEW 4: FINANCIAL & PERFORMANCE REPORTS -->
-      <div id="view-reports" class="view-content">
+      <section id="view-reports" class="view-content">
         <div class="report-breadcrumb" id="reportBreadcrumbs"></div>
 
         <div id="rptYearlySubView" class="card">
-          <div class="card-title-bar">
-            <span class="card-title">📅 Yearly Performance Summary</span>
-            <select id="rptYearSelect" onchange="renderYearlyReport()" style="width:auto;">
+          <div class="card-header">
+            <h3 class="card-title">Yearly Performance Summary</h3>
+            <select id="rptYearSelect" class="filter-select" onchange="renderYearlyReport()">
               <option value="2026" selected>2026</option>
               <option value="2025">2025</option>
               <option value="2024">2024</option>
             </select>
           </div>
-          <div class="report-summary-grid">
-            <div class="report-card">
-              <div class="report-card-title">Yearly Gross Sales</div>
-              <div id="yrGrossSales" class="report-card-value text-blue">₱0.00</div>
+          <div class="kpi-three-grid">
+            <div class="mini-stat-card">
+              <span>Yearly Gross Sales</span>
+              <strong id="yrGrossSales" class="text-orange">₱0.00</strong>
             </div>
-            <div class="report-card">
-              <div class="report-card-title">Yearly Investment</div>
-              <div id="yrTotalCost" class="report-card-value text-orange">₱0.00</div>
+            <div class="mini-stat-card">
+              <span>Yearly Investment</span>
+              <strong id="yrTotalCost">₱0.00</strong>
             </div>
-            <div class="report-card">
-              <div class="report-card-title">Yearly Net Profit</div>
-              <div id="yrNetProfit" class="report-card-value text-green">₱0.00</div>
+            <div class="mini-stat-card">
+              <span>Yearly Net Profit</span>
+              <strong id="yrNetProfit" class="text-green">₱0.00</strong>
             </div>
           </div>
-          <table class="report-table">
-            <thead>
-              <tr>
-                <th>Month</th>
-                <th style="text-align:center;">Transactions</th>
-                <th style="text-align:right;">Investment (Cost)</th>
-                <th style="text-align:right;">Gross Sales</th>
-                <th style="text-align:right;">Net Profit</th>
-                <th style="text-align:center;">Action</th>
-              </tr>
-            </thead>
-            <tbody id="yearlyTableBody"></tbody>
-          </table>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Month</th>
+                  <th class="text-center">Transactions</th>
+                  <th class="text-right">Investment (Cost)</th>
+                  <th class="text-right">Gross Sales</th>
+                  <th class="text-right">Net Profit</th>
+                  <th class="text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody id="yearlyTableBody"></tbody>
+            </table>
+          </div>
         </div>
 
         <div id="rptMonthlySubView" class="card" style="display:none;">
-          <div class="card-title-bar">
-            <div>
-              <span class="card-title" id="monthlyTitleHeader">📆 Monthly Breakdown</span>
-            </div>
-            <div style="display:flex; gap:10px;">
-              <button class="btn btn-secondary" style="font-size:11px; padding:6px 12px;" onclick="goToYearlyView()">⬅️ Back to Yearly</button>
-              <select id="rptMonthSelect" onchange="handleMonthSelectChange()" style="width:auto;">
+          <div class="card-header">
+            <h3 class="card-title" id="monthlyTitleHeader">Monthly Breakdown</h3>
+            <div class="header-actions">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="goToYearlyView()">Back to Yearly</button>
+              <select id="rptMonthSelect" class="filter-select" onchange="handleMonthSelectChange()">
                 <option value="01">January</option>
                 <option value="02">February</option>
                 <option value="03">March</option>
@@ -404,148 +649,127 @@
                 <option value="05">May</option>
                 <option value="06">June</option>
                 <option value="07">July</option>
-                <option value="08" selected>August</option>
+                <option value="08">August</option>
                 <option value="09">September</option>
                 <option value="10">October</option>
-                <option value="11">November</option>
+                <option value="11" selected>November</option>
                 <option value="12">December</option>
               </select>
             </div>
           </div>
-          <div class="report-summary-grid">
-            <div class="report-card">
-              <div class="report-card-title">Monthly Gross Sales</div>
-              <div id="mnGrossSales" class="report-card-value text-blue">₱0.00</div>
+          <div class="kpi-three-grid">
+            <div class="mini-stat-card">
+              <span>Monthly Gross Sales</span>
+              <strong id="mnGrossSales" class="text-orange">₱0.00</strong>
             </div>
-            <div class="report-card">
-              <div class="report-card-title">Monthly Investment</div>
-              <div id="mnTotalCost" class="report-card-value text-orange">₱0.00</div>
+            <div class="mini-stat-card">
+              <span>Monthly Investment</span>
+              <strong id="mnTotalCost">₱0.00</strong>
             </div>
-            <div class="report-card">
-              <div class="report-card-title">Monthly Net Profit</div>
-              <div id="mnNetProfit" class="report-card-value text-green">₱0.00</div>
+            <div class="mini-stat-card">
+              <span>Monthly Net Profit</span>
+              <strong id="mnNetProfit" class="text-green">₱0.00</strong>
             </div>
           </div>
-          <table class="report-table">
-            <thead>
-              <tr>
-                <th>Date / Day</th>
-                <th style="text-align:center;">Transactions</th>
-                <th style="text-align:right;">Investment (Cost)</th>
-                <th style="text-align:right;">Gross Sales</th>
-                <th style="text-align:right;">Net Profit</th>
-                <th style="text-align:center;">Action</th>
-              </tr>
-            </thead>
-            <tbody id="monthlyTableBody"></tbody>
-          </table>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Date / Day</th>
+                  <th class="text-center">Transactions</th>
+                  <th class="text-right">Investment (Cost)</th>
+                  <th class="text-right">Gross Sales</th>
+                  <th class="text-right">Net Profit</th>
+                  <th class="text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody id="monthlyTableBody"></tbody>
+            </table>
+          </div>
         </div>
 
         <div id="rptDailySubView" class="card" style="display:none;">
-          <div class="card-title-bar">
+          <div class="card-header">
             <div>
-              <span class="card-title" id="dailyTitleHeader">📄 Daily Items Sales Log</span>
-              <p id="dailySubDateText" style="font-size:12px; color:#64748b; margin-top:2px;"></p>
+              <h3 class="card-title" id="dailyTitleHeader">Daily Items Sales Log</h3>
+              <p id="dailySubDateText" class="card-subtitle"></p>
             </div>
-            <button class="btn btn-secondary" style="font-size:11px; padding:6px 12px;" onclick="goToMonthlyView()">⬅️ Back to Monthly</button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="goToMonthlyView()">Back to Monthly</button>
           </div>
-          <div class="report-summary-grid">
-            <div class="report-card">
-              <div class="report-card-title">Daily Gross Sales</div>
-              <div id="dyGrossSales" class="report-card-value text-blue">₱0.00</div>
+          <div class="kpi-three-grid">
+            <div class="mini-stat-card">
+              <span>Daily Gross Sales</span>
+              <strong id="dyGrossSales" class="text-orange">₱0.00</strong>
             </div>
-            <div class="report-card">
-              <div class="report-card-title">Daily Investment</div>
-              <div id="dyTotalCost" class="report-card-value text-orange">₱0.00</div>
+            <div class="mini-stat-card">
+              <span>Daily Investment</span>
+              <strong id="dyTotalCost">₱0.00</strong>
             </div>
-            <div class="report-card">
-              <div class="report-card-title">Daily Net Profit</div>
-              <div id="dyNetProfit" class="report-card-value text-green">₱0.00</div>
+            <div class="mini-stat-card">
+              <span>Daily Net Profit</span>
+              <strong id="dyNetProfit" class="text-green">₱0.00</strong>
             </div>
           </div>
-          <table class="report-table">
-            <thead>
-              <tr>
-                <th>Time / Txn ID</th>
-                <th>Item Description (Part Name & OEM)</th>
-                <th style="text-align:center;">Qty</th>
-                <th style="text-align:right;">Investment (Cost)</th>
-                <th style="text-align:right;">Gross Sales</th>
-                <th style="text-align:right;">Net Profit</th>
-              </tr>
-            </thead>
-            <tbody id="dailyTableBody"></tbody>
-          </table>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Time / Txn ID</th>
+                  <th>Item Description (Part Name & OEM)</th>
+                  <th class="text-center">Qty</th>
+                  <th class="text-right">Investment (Cost)</th>
+                  <th class="text-right">Gross Sales</th>
+                  <th class="text-right">Net Profit</th>
+                </tr>
+              </thead>
+              <tbody id="dailyTableBody"></tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      </section>
 
-      <!-- VIEW 5: REGISTER MASTER ITEM (ENHANCED PROTOCOL UI) -->
-      <div id="view-master" class="view-content">
-        <div class="workflow-stepper-card">
-          <div class="step-item completed">
-            <span class="step-num">✓</span>
-            <span class="step-label">1. Login & Auth</span>
-          </div>
-          <div class="step-divider"></div>
-          <div class="step-item active">
-            <span class="step-num">2</span>
-            <span class="step-label">2. Master Item Registration</span>
-          </div>
-          <div class="step-divider"></div>
-          <div class="step-item pending">
-            <span class="step-num">3</span>
-            <span class="step-label">3. Supplier Coding & Barcode</span>
-          </div>
-        </div>
-      
+      <!-- VIEW 5: REGISTER MASTER ITEM (ORIGINAL 3-STEP FLOW + CLICKABLE MASTER CARDS) -->
+      <section id="view-master" class="view-content">
+
         <div class="card form-master-card">
-          <div class="card-title-bar">
+          <div class="card-header">
             <div>
-              <span class="card-title">📦 Register New Master Item Catalog</span>
+              <h3 class="card-title">Register New Master Item Catalog</h3>
               <p class="card-subtitle">Ipasok ang mga pangunahing detalye ng piyesa at sasakyan.</p>
             </div>
-            <span class="badge-tag">STEP 2 OF 3</span>
+            <span class="status-badge badge-orange">STEP 1 TO 4</span>
           </div>
-      
+
           <form id="masterForm">
             <!-- SECTION 1: CORE PART IDENTIFICATION -->
             <div class="form-section-box">
               <div class="section-header">
-                <span class="section-icon">🏷️</span>
+                <i data-lucide="tag"></i>
                 <h4>1. Part Identification</h4>
               </div>
-              <div class="form-row">
+              <div class="form-grid-3">
                 <div class="form-group">
                   <label for="oemInput">OEM / PART NUMBER <span class="required-asterisk">*</span></label>
-                  <div class="input-with-icon">
-                    <span class="field-icon">🔢</span>
-                    <input type="text" id="oemInput" placeholder="HAL: 90915-YZZD1" required />
-                  </div>
+                  <input type="text" id="oemInput" placeholder="HAL: 90915-YZZD1" required />
                 </div>
                 <div class="form-group">
                   <label for="brandInput">BRAND / MANUFACTURER <span class="required-asterisk">*</span></label>
-                  <div class="input-with-icon">
-                    <span class="field-icon">🏢</span>
-                    <input type="text" id="brandInput" placeholder="HAL: TOYOTA / DENSO" required />
-                  </div>
+                  <input type="text" id="brandInput" placeholder="HAL: TOYOTA / DENSO" required />
                 </div>
                 <div class="form-group">
                   <label for="partNameInput">PART NAME <span class="required-asterisk">*</span></label>
-                  <div class="input-with-icon">
-                    <span class="field-icon">⚙️</span>
-                    <input type="text" id="partNameInput" placeholder="HAL: OIL FILTER" required />
-                  </div>
+                  <input type="text" id="partNameInput" placeholder="HAL: OIL FILTER" required />
                 </div>
               </div>
             </div>
-      
+
             <!-- SECTION 2: VEHICLE COMPATIBILITY -->
             <div class="form-section-box">
               <div class="section-header">
-                <span class="section-icon">🚗</span>
+                <i data-lucide="car"></i>
                 <h4>2. Vehicle Compatibility Specs</h4>
               </div>
-              <div class="form-row">
+              <div class="form-grid-4">
                 <div class="form-group">
                   <label for="vehicleMakeInput">VEHICLE MAKE</label>
                   <input type="text" id="vehicleMakeInput" placeholder="HAL: TOYOTA" />
@@ -568,10 +792,10 @@
             <!-- SECTION 3: UNIT & PACKAGING -->
             <div class="form-section-box">
               <div class="section-header">
-                <span class="section-icon">📦</span>
+                <i data-lucide="package"></i>
                 <h4>3. Unit Type & Packaging</h4>
               </div>
-              <div class="form-row">
+              <div class="form-grid-3">
                 <div class="form-group">
                   <label for="unitInput">UNIT / PACKAGING TYPE</label>
                   <select id="unitInput" onchange="toggleBoxPackagingFields()">
@@ -591,8 +815,8 @@
               </div>
 
               <div id="boxFields" class="box-packaging-container">
-                <div style="font-size:12px; font-weight:700; color:#2563eb; text-transform:uppercase; margin-bottom:10px;">
-                  📦 Carton Packaging Details
+                <div style="font-size:12px; font-weight:700; color:#FF6600; text-transform:uppercase; margin-bottom:10px;">
+                  Carton Packaging Details
                 </div>
                 <div class="form-row">
                   <div class="form-group">
@@ -611,151 +835,142 @@
                 <textarea id="descInput" rows="2" placeholder="HAL: GENUINE PACKING..."></textarea>
               </div>
             </div>
-      
+
             <!-- SECTION 4: IMAGE GALLERY UPLOAD -->
             <div class="form-section-box">
               <div class="section-header">
-                <span class="section-icon">🖼️</span>
+                <i data-lucide="image"></i>
                 <h4>4. Item Gallery Upload (Max 10 Photos)</h4>
               </div>
 
-              <div class="image-source-actions">
-                <button type="button" class="btn btn-secondary btn-img-option" onclick="document.getElementById('galleryInput').click()">
-                  📁 Upload from Gallery
+              <div class="upload-bar">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('galleryInput').click()">
+                  <i data-lucide="folder-up"></i> Upload from Gallery
                 </button>
-                <input 
-                  type="file" 
-                  id="galleryInput" 
-                  accept="image/*" 
-                  multiple 
-                  style="display: none;" 
-                  onchange="handleImageUpload(event)" 
-                />
+                <input type="file" id="galleryInput" accept="image/*" multiple style="display: none;" onchange="handleImageUpload(event)" />
 
-                <button type="button" class="btn btn-primary btn-img-option" onclick="document.getElementById('cameraInput').click()">
-                  📷 Take Picture
+                <button type="button" class="btn btn-primary btn-sm" onclick="document.getElementById('cameraInput').click()">
+                  <i data-lucide="camera"></i> Take Picture
                 </button>
-                <input 
-                  type="file" 
-                  id="cameraInput" 
-                  accept="image/*" 
-                  capture="environment" 
-                  style="display: none;" 
-                  onchange="handleImageUpload(event)" 
-                />
+                <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display: none;" onchange="handleImageUpload(event)" />
               </div>
 
               <div id="imagePreview" class="image-preview-container">
                 No images uploaded yet (0/10)
               </div>
             </div>
-      
-            <!-- SUBMIT ACTION BUTTON -->
-            <div class="form-actions-bar">
-              <button type="submit" class="btn btn-primary btn-save-master">
-                💾 SAVE MASTER ITEM & PROCEED TO STEP 3 ➔
+
+            <div class="form-actions-right">
+              <button type="submit" class="btn btn-primary">
+                <i data-lucide="save"></i> SAVE MASTER ITEM AND PROCEED
               </button>
             </div>
           </form>
         </div>
-      
-        <!-- Registered Master Catalog Grid -->
+
+        <!-- Registered Master Catalog Grid (Click any card to open Item Modal) -->
         <div class="card">
-          <div class="card-title-bar">
-            <span class="card-title">📑 Registered Master Items Catalog</span>
-            <input type="text" id="step1Search" class="search-input" style="width:280px; padding:8px 12px;" placeholder="Search Master Item..." oninput="renderStep1Grid()" />
+          <div class="card-header">
+            <div>
+              <h3 class="card-title">Registered Master Items Catalog</h3>
+              <p class="card-subtitle">I-click ang master item card upang tingnan ang buong detalye at supplier variants</p>
+            </div>
+            <input type="text" id="step1Search" class="filter-input" style="width:280px;" placeholder="Search Master Item..." oninput="renderStep1Grid()" />
           </div>
           <div id="step1Grid" class="catalog-grid"></div>
         </div>
-      </div>
+      </section>
 
-      <!-- VIEW 6: CENTRAL INVENTORY -->
-      <div id="view-inventory" class="view-content">
+      <!-- VIEW 6: CENTRAL INVENTORY (EXPANDABLE MASTER ROWS + VARIANT CODING CARDS) -->
+      <section id="view-inventory" class="view-content">
         <div class="card">
-          <div class="card-title-bar">
-            <span class="card-title">🔍 Central Inventory & Supplier Variant Codings</span>
-            <button class="btn btn-primary" onclick="openQuickAddMasterModal()">➕ Register New Master Item</button>
+          <div class="card-header">
+            <div>
+              <h3 class="card-title">Central Inventory & Supplier Variant Codings</h3>
+              <p class="card-subtitle">I-click ang row upang buksan o isara ang mga supplier variant codings at barcode stickers</p>
+            </div>
+            <button type="button" class="btn btn-primary btn-sm" onclick="switchView('view-master')">
+              <i data-lucide="plus"></i> Register New Master Item
+            </button>
           </div>
 
-          <div class="search-container">
-            <span class="search-icon">🔍</span>
-            <input 
-              type="text" 
-              id="inventorySearch" 
-              class="search-input" 
-              placeholder="SEARCH BY PART NAME, OEM, BRAND, SUPPLIER, O VARIANT CODE..." 
-              oninput="renderInventoryGrid()" 
+          <div class="pos-search-bar">
+            <i data-lucide="search" class="pos-search-icon"></i>
+            <input
+              type="text"
+              id="inventorySearch"
+              placeholder="SEARCH BY PART NAME, OEM, BRAND, SUPPLIER, O VARIANT CODE..."
+              oninput="renderInventoryGrid()"
             />
           </div>
 
           <div id="inventoryRowContainer"></div>
         </div>
-      </div>
+      </section>
 
-      <!-- VIEW 7: SUPPLIER MANAGEMENT MODULE -->
-      <div id="view-suppliers" class="view-content">
+      <!-- VIEW 7: SUPPLIERS -->
+      <section id="view-suppliers" class="view-content">
         <div class="card">
-          <div class="card-title-bar">
-            <div class="card-title">🚚 Register New Supplier Details</div>
+          <div class="card-header">
+            <h3 class="card-title">Register New Supplier Details</h3>
           </div>
           <form id="supplierRegForm" onsubmit="handleRegisterSupplierSubmit(event)">
             <div class="form-row">
               <div class="form-group">
-                <label>Supplier Name</label>
-                <input type="text" id="suppNameInput" placeholder="E.G. ABC AUTO SUPPLY CO." required>
+                <label for="suppNameInput">Supplier Name</label>
+                <input type="text" id="suppNameInput" placeholder="E.G. ABC AUTO SUPPLY CO." required />
               </div>
               <div class="form-group">
-                <label>Supplier Contact Person</label>
-                <input type="text" id="suppContactPersonInput" placeholder="E.G. JUAN SANTOS" required>
+                <label for="suppContactPersonInput">Supplier Contact Person</label>
+                <input type="text" id="suppContactPersonInput" placeholder="E.G. JUAN SANTOS" required />
               </div>
             </div>
 
             <div class="form-row">
               <div class="form-group">
-                <label>Supplier Phone Number</label>
-                <input type="text" id="suppPhoneInput" placeholder="E.G. 09123456789" required>
+                <label for="suppPhoneInput">Supplier Phone Number</label>
+                <input type="text" id="suppPhoneInput" placeholder="E.G. 09123456789" required />
               </div>
               <div class="form-group">
-                <label>Supplier Email</label>
-                <input type="text" id="suppEmailInput" placeholder="E.G. INFO@ABCAUTO.COM" required>
+                <label for="suppEmailInput">Supplier Email</label>
+                <input type="email" id="suppEmailInput" placeholder="E.G. INFO@ABCAUTO.COM" required />
               </div>
             </div>
 
-            <button type="submit" class="btn btn-primary" style="padding: 10px 20px;">➕ Save Supplier Details</button>
+            <button type="submit" class="btn btn-primary">Save Supplier Details</button>
           </form>
         </div>
 
         <div class="card">
-          <div class="card-title-bar">
-            <div class="card-title">📋 Registered Suppliers List</div>
+          <div class="card-header">
+            <h3 class="card-title">Registered Suppliers List</h3>
           </div>
-
-          <table class="report-table">
-            <thead>
-              <tr>
-                <th>Supplier ID</th>
-                <th>Supplier Name</th>
-                <th>Contact Person</th>
-                <th>Phone Number</th>
-                <th>Email</th>
-                <th style="text-align:center;">Action</th>
-              </tr>
-            </thead>
-            <tbody id="suppliersTableBody">
-              <!-- Dynamically populated via API -->
-            </tbody>
-          </table>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Supplier ID</th>
+                  <th>Supplier Name</th>
+                  <th>Contact Person</th>
+                  <th>Phone Number</th>
+                  <th>Email</th>
+                  <th class="text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody id="suppliersTableBody"></tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      </section>
 
-      <!-- VIEW 8: USER MANAGEMENT -->
-      <div id="view-users" class="view-content">
+      <!-- VIEW 8: SYSTEM USERS -->
+      <section id="view-users" class="view-content">
         <div class="card">
-          <div class="card-title-bar">
-            <span class="card-title">👤 Register New System User</span>
+          <div class="card-header">
+            <h3 class="card-title">Register New System User</h3>
           </div>
           <form id="userRegForm" onsubmit="handleRegisterUserSubmit(event)">
-            <div class="form-row">
+            <div class="form-grid-4">
               <div class="form-group">
                 <label for="userFullNameInput">FULL NAME *</label>
                 <input type="text" id="userFullNameInput" placeholder="Juan Dela Cruz" required />
@@ -777,79 +992,81 @@
                 </select>
               </div>
             </div>
-            <button type="submit" class="btn btn-primary">➕ Create Account</button>
+            <button type="submit" class="btn btn-primary">Create Account</button>
           </form>
         </div>
 
         <div class="card">
-          <div class="card-title-bar">
-            <span class="card-title">👥 Registered System Users List</span>
+          <div class="card-header">
+            <h3 class="card-title">Registered System Users List</h3>
           </div>
-          <table class="report-table">
-            <thead>
-              <tr>
-                <th>User ID</th>
-                <th>Full Name</th>
-                <th>Username</th>
-                <th style="text-align:center;">Role Privilege</th>
-                <th style="text-align:center;">Action</th>
-              </tr>
-            </thead>
-            <tbody id="usersTableBody"></tbody>
-          </table>
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>User ID</th>
+                  <th>Full Name</th>
+                  <th>Username</th>
+                  <th class="text-center">Role Privilege</th>
+                  <th class="text-center">Action</th>
+                </tr>
+              </thead>
+              <tbody id="usersTableBody"></tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      </section>
 
-    </div> <!-- /content-area -->
-  </div> <!-- /main-wrapper -->
+    </main>
+  </div>
 
-  <!-- ========================================== -->
-  <!-- 3. MODALS & OVERLAYS                       -->
-  <!-- ========================================== -->
+  <!-- ==========================================================================
+       5. MODALS & OVERLAYS (ORIGINAL FUNCTIONALITY, NEW MATTE BLACK & ORANGE UI)
+       ========================================================================== -->
 
   <!-- RESTOCK VARIANT MODAL -->
   <div id="restockModal" class="modal-overlay" onclick="closeRestockOnOverlay(event)">
-    <div class="modal-card" style="max-width:420px;">
+    <div class="modal-card modal-sm">
       <div class="modal-header">
-        <h3>📦 RESTOCK VARIANT</h3>
-        <button class="modal-close-btn" onclick="closeRestockModal()">&times;</button>
+        <h3>RESTOCK VARIANT</h3>
+        <button type="button" class="modal-close-btn" onclick="closeRestockModal()">&times;</button>
       </div>
       <div class="modal-body">
-        <p id="restockBatchSub" style="font-size:12px; font-weight:700; color:#2563eb; margin-bottom:14px;"></p>
+        <p id="restockBatchSub" class="modal-highlight-text"></p>
         <form id="restockForm">
           <input type="hidden" id="restockBatchCodeInput" />
           <div class="form-group">
             <label for="restockCurrentStock">CURRENT STOCK:</label>
-            <input type="text" id="restockCurrentStock" readonly style="background:#f1f5f9; font-weight:bold;" />
+            <input type="text" id="restockCurrentStock" class="readonly-input" readonly />
           </div>
           <div class="form-group">
             <label for="restockAddQty">DAGDAG NA QUANTITY (STOCK):</label>
             <input type="number" id="restockAddQty" min="1" placeholder="10" required />
           </div>
-          <button type="submit" class="btn btn-success" style="width:100%; height:42px; justify-content:center; margin-top:10px;">
-            ➕ Save Restock Quantity
+          <button type="submit" class="btn btn-primary btn-full" style="margin-top:10px;">
+            Print Stickers & Save Restock
           </button>
         </form>
       </div>
     </div>
   </div>
 
-  <!-- DIRECT SALE CONFIRMATION MODAL (WITH ITEM GALLERY & LIGHTBOX VIEW) -->
+  <!-- DIRECT SALE CONFIRMATION MODAL (FOR POS WITHOUT CART) -->
   <div id="confirmSaleModal" class="modal-overlay" onclick="if(event.target.id==='confirmSaleModal') closeConfirmSaleModal()">
-    <div class="modal-card" style="max-width: 480px;">
+    <div class="modal-card modal-md">
       <div class="modal-header">
         <div>
-          <h3>⚡ CONFIRM DIRECT SALE</h3>
+          <h3>CONFIRM DIRECT SALE</h3>
           <span id="confirmSaleSubTitle" class="modal-subtitle">ITEM: ---</span>
         </div>
-        <button class="modal-close-btn" onclick="closeConfirmSaleModal()">&times;</button>
+        <button type="button" class="modal-close-btn" onclick="closeConfirmSaleModal()">&times;</button>
       </div>
       <div class="modal-body">
         <form id="confirmSaleForm" onsubmit="confirmDirectSale(event)">
-          <input type="hidden" id="saleBatchCodeInput">
-          
-          <!-- ITEM IMAGES GALLERY THUMBNAILS (CLICK TO OPEN LIGHTBOX) -->
-          <div id="confirmImageGallery" style="display: flex; gap: 8px; overflow-x: auto; margin-bottom: 14px; padding-bottom: 4px;"></div>
+          <input type="hidden" id="saleBatchCodeInput" />
+
+          <!-- ITEM IMAGES GALLERY THUMBNAILS -->
+          <div id="confirmImageGallery" class="modal-thumb-row" style="margin-bottom:14px;"></div>
 
           <div class="info-profile-grid" style="margin-bottom: 16px;">
             <div class="profile-item">
@@ -866,16 +1083,18 @@
             </div>
           </div>
 
-          <!-- EDITABLE INPUTS: SELLING PRICE & QTY | READONLY: TOTAL AMOUNT -->
           <div class="form-row">
             <div class="form-group">
-              <label>Selling Price (₱)</label>
-              <input type="number" step="0.01" min="0.01" id="salePriceInput" required oninput="updateConfirmTotalCost()">
+              <label for="salePriceInput">Selling Price (₱)</label>
+              <input type="number" step="0.01" min="0.01" id="salePriceInput" required oninput="updateConfirmTotalCost()" />
             </div>
             <div class="form-group">
-              <label>Quantity to Sell</label>
-              <input type="number" id="saleQtyInput" min="1" value="1" required oninput="updateConfirmTotalCost()">
+              <label for="saleQtyInput">Quantity to Sell</label>
+              <input type="number" id="saleQtyInput" min="1" value="1" required oninput="updateConfirmTotalCost()" />
             </div>
+          </div>
+
+          <div class="form-row">
             <div class="form-group">
               <label for="salePaymentMethodInput">Payment Method *</label>
               <select id="salePaymentMethodInput" required>
@@ -884,14 +1103,14 @@
               </select>
             </div>
             <div class="form-group">
-              <label>Total Amount (₱)</label>
-              <input type="text" id="saleTotalAmountDisplay" readonly style="background:#f1f5f9; font-weight:bold; color:#16a34a; font-size:16px;">
+              <label for="saleTotalAmountDisplay">Total Amount (₱)</label>
+              <input type="text" id="saleTotalAmountDisplay" class="readonly-input text-orange" readonly style="font-size:16px;" />
             </div>
           </div>
 
-          <div style="display:flex; gap:10px; margin-top:20px;">
-            <button type="button" class="btn btn-secondary" style="flex:1; justify-content:center;" onclick="closeConfirmSaleModal()">❌ Cancel</button>
-            <button type="submit" class="btn btn-success" style="flex:1.5; justify-content:center; padding:12px;">✅ Confirm & Log Sale</button>
+          <div class="checkout-action-buttons" style="margin-top:20px;">
+            <button type="button" class="btn btn-secondary" onclick="closeConfirmSaleModal()">Cancel</button>
+            <button type="submit" class="btn btn-primary">Confirm & Log Sale</button>
           </div>
         </form>
       </div>
@@ -900,13 +1119,13 @@
 
   <!-- QUICK SUPPLIER VARIANT CODING MODAL -->
   <div id="quickCodingModal" class="modal-overlay" onclick="closeQuickCodingOnOverlay(event)">
-    <div class="modal-card" style="max-width:520px;">
+    <div class="modal-card modal-md">
       <div class="modal-header">
-        <h3>➕ NEW SUPPLIER CODING VARIANT</h3>
-        <button class="modal-close-btn" onclick="closeQuickCodingModal()">&times;</button>
+        <h3>NEW SUPPLIER CODING VARIANT</h3>
+        <button type="button" class="modal-close-btn" onclick="closeQuickCodingModal()">&times;</button>
       </div>
       <div class="modal-body">
-        <p id="quickCodingMasterSub" style="font-size:12px; font-weight:700; color:#2563eb; margin-bottom:14px;"></p>
+        <p id="quickCodingMasterSub" class="modal-highlight-text"></p>
         <form id="quickCodingForm">
           <input type="hidden" id="quickMasterIdInput" />
           <div class="form-group">
@@ -935,8 +1154,8 @@
               <input type="number" id="qLowStockInput" value="2" required />
             </div>
           </div>
-          <button type="submit" class="btn btn-primary" style="width:100%; height:44px; justify-content:center; margin-top:10px;">
-            💾 Save Supplier Variant Coding
+          <button type="submit" class="btn btn-primary btn-full" style="margin-top:10px;">
+            Save Supplier Variant Coding
           </button>
         </form>
       </div>
@@ -945,17 +1164,17 @@
 
   <!-- ITEM DETAIL POPUP MODAL -->
   <div id="itemModal" class="modal-overlay" onclick="closeModalOnOverlay(event)">
-    <div class="modal-card">
+    <div class="modal-card modal-lg">
       <div class="modal-header">
         <div>
           <h3 id="modalPartName">PART NAME</h3>
           <span id="modalOemSubtitle" class="modal-subtitle">OEM: ---</span>
         </div>
-        <button class="modal-close-btn" onclick="closeModal()">&times;</button>
+        <button type="button" class="modal-close-btn" onclick="closeModal()">&times;</button>
       </div>
 
       <div class="modal-body">
-        <div id="modalGalleryMain" class="modal-gallery-main">⚙️</div>
+        <div id="modalGalleryMain" class="modal-gallery-main"></div>
         <div id="modalThumbRow" class="modal-thumb-row"></div>
 
         <div class="info-profile-grid">
@@ -972,7 +1191,7 @@
         </div>
 
         <div class="modal-batches-section">
-          <div style="font-size: 13px; font-weight: 700; color: #0f172a; margin-bottom: 10px;">🏷️ Associated Inventory Variants & Barcodes</div>
+          <div class="section-sub-heading">Associated Inventory Variants & Barcodes</div>
           <div id="modalBatchesList"></div>
         </div>
       </div>
@@ -982,18 +1201,20 @@
   <!-- FULLSCREEN LIGHTBOX MODAL -->
   <div id="lightboxOverlay" class="lightbox-overlay" onclick="closeLightboxOnOverlay(event)">
     <div class="lightbox-card">
-      <button class="lightbox-close" onclick="closeLightbox()">&times;</button>
-      <button class="lightbox-btn lightbox-prev" onclick="prevLightboxImage()">❮</button>
-      <button class="lightbox-btn lightbox-next" onclick="nextLightboxImage()">❯</button>
-      <img id="lightboxImg" class="lightbox-img" src="" alt="Enlarged View">
+      <button type="button" class="lightbox-close" onclick="closeLightbox()">&times;</button>
+      <button type="button" class="lightbox-btn lightbox-prev" onclick="prevLightboxImage()">❮</button>
+      <button type="button" class="lightbox-btn lightbox-next" onclick="nextLightboxImage()">❯</button>
+      <img id="lightboxImg" class="lightbox-img" src="" alt="Enlarged View" />
       <div id="lightboxCounter" class="lightbox-counter">1 / 1</div>
     </div>
   </div>
 
-  <!-- GLOBAL LOADING SPINNER -->
+  <!-- TOAST NOTIFICATIONS & GLOBAL LOADING SPINNER -->
+  <div id="toastContainer" class="toast-container"></div>
+
   <div id="globalLoadingSpinner" class="loading-overlay" style="display:none;">
     <div class="spinner-card">
-      <div class="spinner-icon">⚙️</div>
+      <div class="spinner-ring"></div>
       <div id="loadingText" class="loading-text">Naglo-load, pakihintay...</div>
     </div>
   </div>
@@ -1005,4 +1226,3 @@
 
 </body>
 </html>
-
