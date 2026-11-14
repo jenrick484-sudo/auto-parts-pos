@@ -17,8 +17,7 @@
    13. Supplier & User Management + App Initialization
    ============================================================================ */
 
-
-/* ============================================================================
+   /* ============================================================================
    01. SECURITY, DATE, CURRENCY & PRICE LETTER-CODE HELPERS
    ============================================================================ */
 
@@ -244,70 +243,70 @@ async function handleLoginSubmit(event) {
   const errorMsg = document.getElementById('loginErrorMsg');
   const submitBtn = document.getElementById('loginSubmitBtn');
 
-  if (!userIn || !passIn) {
-    if (errorMsg) {
-      errorMsg.style.display = 'flex';
-      errorMsg.textContent = '⚠️ Ilagay ang iyong Username at Password.';
-    }
-    return;
-  }
-
-  if (errorMsg) errorMsg.style.display = 'none';
-  if (submitBtn) {
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<span class="btn-text">SIGNING IN...</span>';
-  }
-
-  try {
-    const authRes = await apiRequest('/auth/login', 'POST', {
-      username: userIn,
-      password: passIn
-    });
-
-    const authenticatedUser = authRes?.user || authRes?.data;
-    if (!authenticatedUser) {
-      throw new Error('Hindi wasto ang tugon mula sa authentication server.');
+    if (!userIn || !passIn) {
+      if (errorMsg) {
+        errorMsg.style.display = 'flex';
+        errorMsg.textContent = '⚠️ Ilagay ang iyong Username at Password.';
+      }
+      return;
     }
 
-    if (rememberChecked) {
-      localStorage.setItem('pos_remembered_username', userIn);
-    } else {
-      localStorage.removeItem('pos_remembered_username');
-    }
-
-    loggedInUser = authenticatedUser;
-    localStorage.setItem('pos_user', JSON.stringify(authenticatedUser));
-    if (authRes.token) {
-      localStorage.setItem('pos_token', authRes.token);
-    }
-
-    const loginScreen = document.getElementById('loginScreen');
-    if (loginScreen) loginScreen.style.display = 'none';
-
-    const loginForm = document.getElementById('loginForm');
-    if (loginForm) loginForm.reset();
-
-    applyUserProfileToTopbar(loggedInUser);
-
-    await loadProductionDataFromBackend();
-    applyUserRoleRestrictions();
-
-    if (loggedInUser.role !== 'CASHIER') {
-      switchView('view-dashboard', document.querySelector('.nav-item[data-view="view-dashboard"]'));
-    }
-  } catch (err) {
-    console.error('Login Failed:', err);
-    if (errorMsg) {
-      errorMsg.style.display = 'flex';
-      errorMsg.textContent = `❌ ${err.message || 'Mali ang Username o Password!'}`;
-    }
-  } finally {
+    if (errorMsg) errorMsg.style.display = 'none';
     if (submitBtn) {
-      submitBtn.disabled = false;
-      submitBtn.innerHTML = '<span class="btn-text">SIGN IN TO WORKSPACE</span>';
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span class="btn-text">SIGNING IN...</span>';
+    }
+
+    try {
+      const authRes = await apiRequest('/auth/login', 'POST', {
+        username: userIn,
+        password: passIn
+      });
+
+      const authenticatedUser = authRes?.user || authRes?.data;
+      if (!authenticatedUser) {
+        throw new Error('Hindi wasto ang tugon mula sa authentication server.');
+      }
+
+      if (rememberChecked) {
+        localStorage.setItem('pos_remembered_username', userIn);
+      } else {
+        localStorage.removeItem('pos_remembered_username');
+      }
+
+      loggedInUser = authenticatedUser;
+      localStorage.setItem('pos_user', JSON.stringify(authenticatedUser));
+      if (authRes.token) {
+        localStorage.setItem('pos_token', authRes.token);
+      }
+
+      const loginScreen = document.getElementById('loginScreen');
+      if (loginScreen) loginScreen.style.display = 'none';
+
+      const loginForm = document.getElementById('loginForm');
+      if (loginForm) loginForm.reset();
+
+      applyUserProfileToTopbar(loggedInUser);
+
+      await loadProductionDataFromBackend();
+      applyUserRoleRestrictions();
+
+      if (loggedInUser.role !== 'CASHIER') {
+        switchView('view-dashboard', document.querySelector('.nav-item[data-view="view-dashboard"]'));
+      }
+    } catch (err) {
+      console.error('Login Failed:', err);
+      if (errorMsg) {
+        errorMsg.style.display = 'flex';
+        errorMsg.textContent = `❌ ${err.message || 'Mali ang Username o Password!'}`;
+      }
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<span class="btn-text">SIGN IN TO WORKSPACE</span>';
+      }
     }
   }
-}
 
 async function restoreSessionOnReload() {
   const savedUserRaw = localStorage.getItem('pos_user');
@@ -339,9 +338,11 @@ async function restoreSessionOnReload() {
     await loadProductionDataFromBackend();
     applyUserRoleRestrictions();
 
+    const cashierAllowedViews = ['view-sale', 'view-master'];
     let savedView = localStorage.getItem('pos_active_view');
+
     if (loggedInUser.role === 'CASHIER') {
-      savedView = 'view-sale';
+      savedView = cashierAllowedViews.includes(savedView) ? savedView : 'view-sale';
     } else if (!savedView || !document.getElementById(savedView)) {
       savedView = 'view-dashboard';
     }
@@ -376,11 +377,26 @@ function applyUserRoleRestrictions() {
   if (!loggedInUser) return;
 
   if (loggedInUser.role === 'CASHIER') {
+    const allowedViews = ['view-sale', 'view-master'];
+
     navItems.forEach((item, idx) => {
-      item.style.display = idx === 1 ? 'flex' : 'none';
+      const targetView = item.getAttribute('data-view') || '';
+      const onclickAttr = item.getAttribute('onclick') || '';
+      const isAllowed =
+        allowedViews.some(v => targetView === v || onclickAttr.includes(v)) ||
+        idx === 1 ||
+        idx === 4;
+
+      item.style.display = isAllowed ? 'flex' : 'none';
     });
-    if (sectionLabels[1]) sectionLabels[1].style.display = 'none';
-    switchView('view-sale', navItems[1]);
+
+    sectionLabels.forEach(lbl => {
+      lbl.style.display = 'block';
+    });
+
+    const savedView = localStorage.getItem('pos_active_view');
+    const targetInitialView = allowedViews.includes(savedView) ? savedView : 'view-sale';
+    switchView(targetInitialView);
   } else if (loggedInUser.role === 'MANAGER') {
     navItems.forEach((item, idx) => {
       item.style.display = idx === 7 ? 'none' : 'flex';
@@ -395,7 +411,6 @@ function applyUserRoleRestrictions() {
     });
   }
 }
-
 
 /* ============================================================================
    05. MAIN NAVIGATION, SIDEBAR CONTROLS, LIVE CLOCK & GLOBAL SEARCH
@@ -468,8 +483,9 @@ function handleGlobalSearchKey(event) {
 function switchView(viewId, element) {
   if (!loggedInUser) return;
 
-  if (loggedInUser.role === 'CASHIER' && viewId !== 'view-sale') {
-    alert('Restricted access: Cashier can only access POS Checkout.');
+  const cashierAllowedViews = ['view-sale', 'view-master'];
+  if (loggedInUser.role === 'CASHIER' && !cashierAllowedViews.includes(viewId)) {
+    alert('Restricted access: Cashier can only access POS Checkout and Master Item.');
     return;
   }
   if (loggedInUser.role === 'MANAGER' && viewId === 'view-users') {
