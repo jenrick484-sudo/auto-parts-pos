@@ -2006,31 +2006,54 @@ textarea:focus {
 /* ============================================================================
    9. RESPONSIVE BREAKPOINTS (LAPTOP, TABLET & MOBILE)
    ============================================================================ */
+
+/* Prevent horizontal page drift across all screen sizes */
+html, body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.main-wrapper,
+.content-area,
+.view-content,
+.card {
+  min-width: 0;
+}
+
 @media (max-width: 1280px) {
   .kpi-four-grid,
-  .quick-actions-strip { grid-template-columns: repeat(2, 1fr); }
+  .quick-actions-strip {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
   .dashboard-charts-grid,
-  .dashboard-tables-grid { grid-template-columns: 1fr; }
+  .dashboard-tables-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 1023px) {
   .login-split-layout { grid-template-columns: 0.88fr 1.12fr; }
   .login-brand-panel { padding: 40px 36px; }
-  .form-grid-4 { grid-template-columns: repeat(2, 1fr); }
+  .form-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .topbar-search { max-width: 240px; }
 }
 
+/* ============================================================================
+   MOBILE VIEW (PHONES <= 767px)
+   ============================================================================ */
 @media (max-width: 767px) {
+  /* --- Login Screen --- */
   .login-split-layout { grid-template-columns: 1fr; }
   .login-brand-panel { display: none; }
-  .login-form-panel { background-color: #F8FAFC; padding: 24px 16px; }
-  .login-card { padding: 28px 22px; }
+  .login-form-panel { background-color: #F8FAFC; padding: 20px 14px; }
+  .login-card { padding: 24px 18px; }
   .mobile-brand-header {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding-bottom: 20px;
-    margin-bottom: 20px;
+    padding-bottom: 16px;
+    margin-bottom: 18px;
     border-bottom: 1px solid #E2E8F0;
   }
   .mobile-emblem {
@@ -2038,31 +2061,228 @@ textarea:focus {
     height: 40px;
     border-radius: 10px;
     background-color: var(--orange-light);
-    border-color: rgba(255, 102, 0, 0.25);
+    border: 1px solid rgba(255, 102, 0, 0.25);
   }
   .mobile-brand-title { font-size: 13px; font-weight: 800; color: #171717; }
   .mobile-brand-sub { font-size: 11px; font-weight: 700; color: var(--orange-primary); }
 
+  /* --- Mobile Drawer Sidebar --- */
   .sidebar {
     position: fixed;
     top: 0;
     bottom: 0;
     left: 0;
+    z-index: 1000;
     transform: translateX(-100%);
   }
   .sidebar.mobile-open { transform: translateX(0); }
-  .mobile-backdrop.active { display: block; }
+  .mobile-backdrop.active { display: block; z-index: 999; }
   .sidebar-collapse-btn { display: none; }
-  .mobile-menu-btn { display: inline-flex; }
+  .mobile-menu-btn {
+    display: inline-flex;
+    flex-shrink: 0;
+    width: 38px;
+    height: 38px;
+  }
+
+  /* --- Topbar Header Fix (No Clipping, Clean Alignment) --- */
+  .topbar {
+    height: auto;
+    min-height: 60px;
+    padding: 10px 12px;
+    gap: 8px;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    min-width: 0;
+  }
+  .topbar-title-group {
+    min-width: 0;
+    flex: 1;
+  }
+  .topbar-breadcrumb {
+    font-size: 10px;
+    line-height: 1.2;
+    margin-bottom: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  #pageTitle {
+    font-size: 15px;
+    font-weight: 800;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
   .topbar-search,
-  .live-clock-pill { display: none; }
-  .content-area { padding: 16px; }
+  .live-clock-pill {
+    display: none !important;
+  }
+  .topbar-icon-btn {
+    width: 36px;
+    height: 36px;
+  }
+  .user-profile-pill {
+    padding: 4px 8px 4px 4px;
+    gap: 6px;
+  }
+  .user-avatar-circle {
+    width: 30px;
+    height: 30px;
+    font-size: 11px;
+  }
+  .user-profile-meta {
+    display: none; /* Itago ang mahabang text sa maliit na screen; avatar badge lang */
+  }
+
+  /* --- Main Content & Cards --- */
+  .content-area {
+    padding: 12px;
+    width: 100%;
+    overflow-x: hidden;
+  }
+  .card {
+    padding: 14px;
+    border-radius: 12px;
+    margin-bottom: 14px;
+  }
+  .card-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .card-header .btn {
+    white-space: nowrap;
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+
+  /* --- KPI Cards (Clean 1-Column Stack) --- */
   .kpi-four-grid,
-  .kpi-three-grid,
-  .quick-actions-strip,
+  .kpi-three-grid {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 10px;
+  }
+  .kpi-card {
+    padding: 14px 16px;
+  }
+  .kpi-value {
+    font-size: 22px;
+  }
+
+  /* --- Quick Actions Strip (Fixes Horizontal Overflow!) --- */
+  .quick-actions-strip {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 10px;
+    width: 100%;
+    overflow: visible;
+  }
+  .quick-action-btn,
+  .quick-action-card {
+    width: 100%;
+    min-width: 0;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    text-align: left;
+  }
+
+  /* --- Charts Sizing on Mobile --- */
+  .dashboard-charts-grid,
+  .dashboard-tables-grid {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 14px;
+  }
+  .chart-container,
+  .chart-canvas-wrapper {
+    position: relative;
+    width: 100% !important;
+    height: 230px !important;
+    max-height: 240px;
+  }
+
+  /* --- POS Checkout View (#view-sale) --- */
+  .sale-subtabs-bar {
+    display: flex;
+    overflow-x: auto;
+    gap: 6px;
+    padding-bottom: 6px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .sale-subtab-btn {
+    flex-shrink: 0;
+    white-space: nowrap;
+    font-size: 12px;
+    padding: 8px 12px;
+  }
+  .catalog-grid {
+    grid-template-columns: 1fr !important;
+    gap: 10px;
+  }
+
+  /* --- Central Inventory & Master Items --- */
+  .master-row-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .master-row-actions {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 8px;
+    border-top: 1px solid #F1F5F9;
+  }
+
+  /* --- Forms & Tables --- */
+  .form-grid-2,
   .form-grid-3,
   .form-grid-4 {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr !important;
+    gap: 12px;
+  }
+  .table-responsive,
+  .table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .table-responsive table,
+  .table-wrapper table {
+    min-width: 520px;
+  }
+
+  /* --- Modals (Bottom-Friendly Mobile Sheet) --- */
+  .modal-overlay {
+    padding: 10px;
+    align-items: flex-end;
+  }
+  .modal-box,
+  .modal-content {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 90vh;
+    overflow-y: auto;
+    border-radius: 16px 16px 12px 12px;
+    padding: 18px 16px;
   }
 }
 
@@ -2071,4 +2291,102 @@ textarea:focus {
     animation: none !important;
     transition: none !important;
   }
+}
+
+/* ============================================================================
+   SIDEBAR USER PROFILE (BELOW DAIHO LOGO) & TOPBAR BELL-ONLY SPACING
+   ============================================================================ */
+.sidebar-user-profile {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin: 12px 14px 4px;
+  padding: 10px 12px;
+  background-color: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+}
+
+.sidebar-user-profile .user-avatar-circle {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background-color: #1F1F1F;
+  border: 1.5px solid #FF6600;
+  color: #FF6600;
+  font-size: 12px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sidebar-user-profile .user-profile-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.sidebar-user-profile .user-profile-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: #FFFFFF;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-user-profile .user-profile-role {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #FF6600;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+
+/* Kapag naka-collapse ang sidebar sa desktop */
+.sidebar.collapsed .sidebar-user-profile {
+  justify-content: center;
+  padding: 8px;
+  margin: 12px 8px 4px;
+}
+
+.sidebar.collapsed .sidebar-user-profile .user-profile-meta {
+  display: none;
+}
+
+/* Siguraduhing hindi matatakpan ng bell icon ang title sa topbar */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.topbar-title-group {
+  min-width: 0;
+  flex: 1;
+}
+
+#pageTitle {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }

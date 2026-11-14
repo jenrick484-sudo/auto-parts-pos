@@ -234,7 +234,14 @@
         </li>
       </ul>
     </nav>
-
+    <!-- USER PROFILE (NASA ILALIM NG DAIHO HEADER) -->
+    <div class="sidebar-user-profile">
+      <div id="activeUserInitials" class="user-avatar-circle">SA</div>
+        <div class="user-profile-meta">
+          <div id="activeUserFullName" class="user-profile-name">Super Admin</div>
+          <div id="activeUserRoleBadge" class="user-profile-role">ADMIN</div>
+        </div>
+    </div>
     <div class="sidebar-footer">
       <button type="button" class="nav-logout-btn" onclick="handleLogout()">
         <i data-lucide="log-out"></i>
@@ -278,13 +285,6 @@
           <i data-lucide="bell"></i>
           <span id="topbarAlertDot" class="alert-dot" style="display:none;">0</span>
         </button>
-        <div class="user-profile-pill">
-          <div id="activeUserInitials" class="user-avatar-circle">DH</div>
-          <div class="user-meta">
-            <span id="activeUserFullName" class="user-name">User Account</span>
-            <span id="activeUserRoleBadge" class="role-badge">ROLE</span>
-          </div>
-        </div>
       </div>
     </header>
 
@@ -465,7 +465,6 @@
             <div class="card-header">
               <div>
                 <h3 class="card-title">Scan Barcode or Search Item / Variant</h3>
-                <p class="card-subtitle">Ipinapakita dito ang mga variants na pasok sa stock limit (equal or less than stock limit) o na-scan sa barcode</p>
               </div>
               <button type="button" id="camToggleBtn" class="btn btn-primary btn-sm" onclick="toggleCameraScanner()">
                 <i data-lucide="camera"></i> Open Live Camera Scanner
