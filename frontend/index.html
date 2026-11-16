@@ -728,157 +728,171 @@
         </div>
       </section>
 
-      <!-- VIEW 5: REGISTER MASTER ITEM (ORIGINAL 3-STEP FLOW + CLICKABLE MASTER CARDS) -->
+      <!-- VIEW 5: REGISTER MASTER ITEM (MAY SUB-VIEWS NA KATULAD NG POS) -->
       <section id="view-master" class="view-content">
 
-        <div class="card form-master-card">
-          <div class="card-header">
-            <div>
-              <h3 class="card-title">Register New Master Item Catalog</h3>
-              <p class="card-subtitle">Ipasok ang mga pangunahing detalye ng piyesa at sasakyan.</p>
-            </div>
-            <span class="status-badge badge-orange">STEP 1 TO 4</span>
-          </div>
+        <!-- 2 MASTER SUB-NAVIGATION BUTTONS -->
+        <div class="pos-subnav">
+          <button type="button" class="pos-tab-btn master-subtab-btn active" onclick="switchMasterSubView('subview-master-add', this)">
+            <i data-lucide="package-plus"></i> Add Master Item
+          </button>
+          <button type="button" class="pos-tab-btn master-subtab-btn" onclick="switchMasterSubView('subview-master-list', this)">
+            <i data-lucide="list"></i> Registered Master Items
+          </button>
+        </div>
 
-          <form id="masterForm">
-            <!-- SECTION 1: CORE PART IDENTIFICATION -->
-            <div class="form-section-box">
-              <div class="section-header">
-                <i data-lucide="tag"></i>
-                <h4>1. Part Identification</h4>
+        <!-- SUBVIEW 1: ADD MASTER ITEM FORM -->
+        <div id="subview-master-add" class="master-subview-content" style="display: block;">
+          <div class="card form-master-card">
+            <div class="card-header">
+              <div>
+                <h3 class="card-title">Register New Master Item Catalog</h3>
               </div>
-              <div class="form-grid-3">
-                <div class="form-group">
-                  <label for="oemInput">OEM / PART NUMBER <span class="required-asterisk">*</span></label>
-                  <input type="text" id="oemInput" placeholder="HAL: 90915-YZZD1" required />
-                </div>
-                <div class="form-group">
-                  <label for="brandInput">BRAND / MANUFACTURER <span class="required-asterisk">*</span></label>
-                  <input type="text" id="brandInput" placeholder="HAL: TOYOTA / DENSO" required />
-                </div>
-                <div class="form-group">
-                  <label for="partNameInput">PART NAME <span class="required-asterisk">*</span></label>
-                  <input type="text" id="partNameInput" placeholder="HAL: OIL FILTER" required />
-                </div>
-              </div>
+              <span class="status-badge badge-orange">STEP 1 TO 4</span>
             </div>
 
-            <!-- SECTION 2: VEHICLE COMPATIBILITY -->
-            <div class="form-section-box">
-              <div class="section-header">
-                <i data-lucide="car"></i>
-                <h4>2. Vehicle Compatibility Specs</h4>
-              </div>
-              <div class="form-grid-4">
-                <div class="form-group">
-                  <label for="vehicleMakeInput">VEHICLE MAKE</label>
-                  <input type="text" id="vehicleMakeInput" placeholder="HAL: TOYOTA" />
+            <form id="masterForm">
+              <!-- SECTION 1: CORE PART IDENTIFICATION -->
+              <div class="form-section-box">
+                <div class="section-header">
+                  <i data-lucide="tag"></i>
+                  <h4>1. Part Identification</h4>
                 </div>
-                <div class="form-group">
-                  <label for="vehicleModelInput">VEHICLE MODEL</label>
-                  <input type="text" id="vehicleModelInput" placeholder="HAL: VIOS" />
-                </div>
-                <div class="form-group">
-                  <label for="yearInput">YEAR RANGE</label>
-                  <input type="text" id="yearInput" placeholder="HAL: 2018–2022" />
-                </div>
-                <div class="form-group">
-                  <label for="engineInput">ENGINE MODEL</label>
-                  <input type="text" id="engineInput" placeholder="HAL: 1NZ-FE" />
-                </div>
-              </div>
-            </div>
-
-            <!-- SECTION 3: UNIT & PACKAGING -->
-            <div class="form-section-box">
-              <div class="section-header">
-                <i data-lucide="package"></i>
-                <h4>3. Unit Type & Packaging</h4>
-              </div>
-              <div class="form-grid-3">
-                <div class="form-group">
-                  <label for="unitInput">UNIT / PACKAGING TYPE</label>
-                  <select id="unitInput" onchange="toggleBoxPackagingFields()">
-                    <option value="pc">1 PC (PIECE)</option>
-                    <option value="set">SET</option>
-                    <option value="box">BOX / CARTON (FLUIDS/BULK)</option>
-                  </select>
-                </div>
-                <div class="form-group">
-                  <label for="positionInput">POSITION</label>
-                  <input type="text" id="positionInput" placeholder="HAL: FRONT / REAR" />
-                </div>
-                <div class="form-group">
-                  <label for="originInput">COUNTRY OF ORIGIN</label>
-                  <input type="text" id="originInput" placeholder="HAL: JAPAN" />
-                </div>
-              </div>
-
-              <div id="boxFields" class="box-packaging-container">
-                <div style="font-size:12px; font-weight:700; color:#FF6600; text-transform:uppercase; margin-bottom:10px;">
-                  Carton Packaging Details
-                </div>
-                <div class="form-row">
+                <div class="form-grid-3">
                   <div class="form-group">
-                    <label for="pcsPerBoxInput">Pcs per Box / Carton</label>
-                    <input type="number" id="pcsPerBoxInput" placeholder="HAL: 12" />
+                    <label for="oemInput">OEM / PART NUMBER <span class="required-asterisk">*</span></label>
+                    <input type="text" id="oemInput" placeholder="HAL: 90915-YZZD1" required />
                   </div>
                   <div class="form-group">
-                    <label for="sizePerPcInput">Volume / Size per Piece</label>
-                    <input type="text" id="sizePerPcInput" placeholder="HAL: 1L, 4L" />
+                    <label for="brandInput">BRAND / MANUFACTURER <span class="required-asterisk">*</span></label>
+                    <input type="text" id="brandInput" placeholder="HAL: TOYOTA / DENSO" required />
+                  </div>
+                  <div class="form-group">
+                    <label for="partNameInput">PART NAME <span class="required-asterisk">*</span></label>
+                    <input type="text" id="partNameInput" placeholder="HAL: OIL FILTER" required />
                   </div>
                 </div>
               </div>
 
-              <div class="form-group" style="margin-top:12px;">
-                <label for="descInput">DESCRIPTION / ADDITIONAL DETAILS</label>
-                <textarea id="descInput" rows="2" placeholder="HAL: GENUINE PACKING..."></textarea>
+              <!-- SECTION 2: VEHICLE COMPATIBILITY -->
+              <div class="form-section-box">
+                <div class="section-header">
+                  <i data-lucide="car"></i>
+                  <h4>2. Vehicle Compatibility Specs</h4>
+                </div>
+                <div class="form-grid-4">
+                  <div class="form-group">
+                    <label for="vehicleMakeInput">VEHICLE MAKE</label>
+                    <input type="text" id="vehicleMakeInput" placeholder="HAL: TOYOTA" />
+                  </div>
+                  <div class="form-group">
+                    <label for="vehicleModelInput">VEHICLE MODEL</label>
+                    <input type="text" id="vehicleModelInput" placeholder="HAL: VIOS" />
+                  </div>
+                  <div class="form-group">
+                    <label for="yearInput">YEAR RANGE</label>
+                    <input type="text" id="yearInput" placeholder="HAL: 2018–2022" />
+                  </div>
+                  <div class="form-group">
+                    <label for="engineInput">ENGINE MODEL</label>
+                    <input type="text" id="engineInput" placeholder="HAL: 1NZ-FE" />
+                  </div>
+                </div>
               </div>
-            </div>
 
-            <!-- SECTION 4: IMAGE GALLERY UPLOAD -->
-            <div class="form-section-box">
-              <div class="section-header">
-                <i data-lucide="image"></i>
-                <h4>4. Item Gallery Upload (Max 10 Photos)</h4>
+              <!-- SECTION 3: UNIT & PACKAGING -->
+              <div class="form-section-box">
+                <div class="section-header">
+                  <i data-lucide="package"></i>
+                  <h4>3. Unit Type & Packaging</h4>
+                </div>
+                <div class="form-grid-3">
+                  <div class="form-group">
+                    <label for="unitInput">UNIT / PACKAGING TYPE</label>
+                    <select id="unitInput" onchange="toggleBoxPackagingFields()">
+                      <option value="pc">1 PC (PIECE)</option>
+                      <option value="set">SET</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label for="positionInput">POSITION</label>
+                    <input type="text" id="positionInput" placeholder="HAL: FRONT / REAR" />
+                  </div>
+                  <div class="form-group">
+                    <label for="originInput">COUNTRY OF ORIGIN</label>
+                    <input type="text" id="originInput" placeholder="HAL: JAPAN" />
+                  </div>
+                </div>
+
+                <div id="boxFields" class="box-packaging-container">
+                  <div style="font-size:12px; font-weight:700; color:#FF6600; text-transform:uppercase; margin-bottom:10px;">
+                    Carton Packaging Details
+                  </div>
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="pcsPerBoxInput">Pcs per Box / Carton</label>
+                      <input type="number" id="pcsPerBoxInput" placeholder="HAL: 12" />
+                    </div>
+                    <div class="form-group">
+                      <label for="sizePerPcInput">Volume / Size per Piece</label>
+                      <input type="text" id="sizePerPcInput" placeholder="HAL: 1L, 4L" />
+                    </div>
+                  </div>
+                </div>
+
+                <div class="form-group" style="margin-top:12px;">
+                  <label for="descInput">DESCRIPTION / ADDITIONAL DETAILS</label>
+                  <textarea id="descInput" rows="2" placeholder="HAL: GENUINE PACKING..."></textarea>
+                </div>
               </div>
 
-              <div class="upload-bar">
-                <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('galleryInput').click()">
-                  <i data-lucide="folder-up"></i> Upload from Gallery
+              <!-- SECTION 4: IMAGE GALLERY UPLOAD -->
+              <div class="form-section-box">
+                <div class="section-header">
+                  <i data-lucide="image"></i>
+                  <h4>4. Item Gallery Upload (Max 10 Photos)</h4>
+                </div>
+
+                <div class="upload-bar">
+                  <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('galleryInput').click()">
+                    <i data-lucide="folder-up"></i> Upload from Gallery
+                  </button>
+                  <input type="file" id="galleryInput" accept="image/*" multiple style="display: none;" onchange="handleImageUpload(event)" />
+
+                  <button type="button" class="btn btn-primary btn-sm" onclick="document.getElementById('cameraInput').click()">
+                    <i data-lucide="camera"></i> Take Picture
+                  </button>
+                  <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display: none;" onchange="handleImageUpload(event)" />
+                </div>
+
+                <div id="imagePreview" class="image-preview-container">
+                  No images uploaded yet (0/10)
+                </div>
+              </div>
+
+              <div class="form-actions-right">
+                <button type="submit" class="btn btn-primary">
+                  <i data-lucide="save"></i> SAVE MASTER ITEM AND PROCEED
                 </button>
-                <input type="file" id="galleryInput" accept="image/*" multiple style="display: none;" onchange="handleImageUpload(event)" />
-
-                <button type="button" class="btn btn-primary btn-sm" onclick="document.getElementById('cameraInput').click()">
-                  <i data-lucide="camera"></i> Take Picture
-                </button>
-                <input type="file" id="cameraInput" accept="image/*" capture="environment" style="display: none;" onchange="handleImageUpload(event)" />
               </div>
-
-              <div id="imagePreview" class="image-preview-container">
-                No images uploaded yet (0/10)
-              </div>
-            </div>
-
-            <div class="form-actions-right">
-              <button type="submit" class="btn btn-primary">
-                <i data-lucide="save"></i> SAVE MASTER ITEM AND PROCEED
-              </button>
-            </div>
-          </form>
-        </div>
-
-        <!-- Registered Master Catalog Grid (Click any card to open Item Modal) -->
-        <div class="card">
-          <div class="card-header">
-            <div>
-              <h3 class="card-title">Registered Master Items Catalog</h3>
-              <p class="card-subtitle">I-click ang master item card upang tingnan ang buong detalye at supplier variants</p>
-            </div>
-            <input type="text" id="step1Search" class="filter-input" style="width:280px;" placeholder="Search Master Item..." oninput="renderStep1Grid()" />
+            </form>
           </div>
-          <div id="step1Grid" class="catalog-grid"></div>
         </div>
+
+        <!-- SUBVIEW 2: REGISTERED MASTER ITEMS CATALOG GRID -->
+        <div id="subview-master-list" class="master-subview-content" style="display: none;">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h3 class="card-title">Registered Master Items Catalog</h3>
+                <p class="card-subtitle">I-click ang master item card upang tingnan ang buong detalye at supplier variants</p>
+              </div>
+              <input type="text" id="step1Search" class="filter-input" style="width:280px;" placeholder="Search Master Item..." oninput="renderStep1Grid()" />
+            </div>
+            <div id="step1Grid" class="catalog-grid"></div>
+          </div>
+        </div>
+
       </section>
 
       <!-- VIEW 6: CENTRAL INVENTORY (EXPANDABLE MASTER ROWS + VARIANT CODING CARDS) -->

@@ -1,25 +1,42 @@
 const db = require('../config/db');
 
-// Kunin ang lahat ng Master Items kasama ang kabuuang stock mula sa mga variant nito
+// Kunin ang lahat ng Master Items kasama ang unang larawan (thumbnail) lamang para mabilis mag-load
 exports.getAllMasters = async (req, res) => {
   try {
     const query = `
-      SELECT m.*, 
-             COALESCE(SUM(v.stock), 0) as total_stock
-      FROM master_items m
-      LEFT JOIN inventory_variants v ON m.id = v.master_id
-      GROUP BY m.id
-      ORDER BY m.part_name ASC, m.oem ASC;
+      SELECT id, oem, brand, part_name, make, model, year, engine, 
+             unit_type, pcs_per_box, size_per_pc, position, origin, description, 
+             images[1:1] AS images, created_at 
+      FROM master_items 
+      ORDER BY part_name ASC;
     `;
-    const result = await db.query(query);
-    res.json({ success: true, masters: result.rows });
+    const { rows } = await db.query(query);
+    res.json(rows);
   } catch (error) {
     console.error('Error fetching master items:', error);
     res.status(500).json({ success: false, message: 'Server error sa pagkuha ng master items.' });
   }
 };
 
-// Mag-save ng Bagong Master Item sa Database
+// 2. Kunin ang larawan ng isang partikular na item on-demand (Kapag binuksan ang modal/detalye)
+exports.getMasterImage = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const query = 'SELECT images FROM master_items WHERE id = $1';
+    const { rows } = await db.query(query, [id]);
+    
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Hindi nahanap ang Master Item.' });
+    }
+    
+    res.json({ success: true, images: rows[0].images || [] });
+  } catch (error) {
+    console.error('Error fetching master image:', error);
+    res.status(500).json({ success: false, message: 'Server error sa pagkuha ng larawan.' });
+  }
+};
+
+// 3. Mag-save ng Bagong Master Item sa Database
 exports.createMaster = async (req, res) => {
   try {
     const {
@@ -39,7 +56,6 @@ exports.createMaster = async (req, res) => {
       images
     } = req.body;
 
-    // I-validate ang mga pangunahing kinakailangang field
     if (!oem || !brand || !part_name) {
       return res.status(400).json({ 
         success: false, 
@@ -87,7 +103,7 @@ exports.createMaster = async (req, res) => {
   }
 };
 
-// Kunin ang isang Master Item at ang mga kaugnay nitong supplier variants
+// 4. Kunin ang isang Master Item at ang mga kaugnay nitong supplier variants
 exports.getMasterById = async (req, res) => {
   try {
     const { id } = req.params;

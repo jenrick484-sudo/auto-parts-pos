@@ -1,41 +1,70 @@
-// HELPER FUNCTIONS FOR LOADING SPINNER
-function showLoading(message = 'Please wait, loading...') {
-  const spinner = document.getElementById('globalLoadingSpinner');
-  const textEl = document.getElementById('loadingText');
-  if (textEl) textEl.textContent = message;
-  if (spinner) spinner.style.display = 'flex';
+/* ============================================================================
+   GLOBAL LOADING SPINNER (OPTIMIZED WITH REQUEST COUNTER)
+   ============================================================================ */
+
+let activeRequestsCount = 0;
+
+function showLoading() {
+  activeRequestsCount++;
+  const spinnerEl = document.getElementById('globalLoadingSpinner');
+  if (spinnerEl) {
+    spinnerEl.style.display = 'flex';
+  }
 }
 
 function hideLoading() {
-  const spinner = document.getElementById('globalLoadingSpinner');
-  if (spinner) spinner.style.display = 'none';
+  activeRequestsCount--;
+  if (activeRequestsCount <= 0) {
+    activeRequestsCount = 0;
+    const spinnerEl = document.getElementById('globalLoadingSpinner');
+    if (spinnerEl) {
+      spinnerEl.style.display = 'none';
+    }
+  }
 }
 
-async function apiRequest(endpoint, method = 'GET', body = null, customLoadingMsg = null) {
-  showLoading(customLoadingMsg || 'Please wait, loading...');
-  const token = localStorage.getItem('pos_token');
-  const headers = { 'Content-Type': 'application/json' };
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  const options = { method, headers };
-  if (body) options.body = JSON.stringify(body);
-
+async function apiRequest(url, method = 'GET', bodyData = null) {
+  showLoading();
   try {
-    const response = await fetch(`${CONFIG.API_BASE_URL}${endpoint}`, options);
+    // Awtomatikong idikit ang CONFIG.API_BASE_URL mula sa config.js kung relative path ito
+    const base = typeof CONFIG !== 'undefined' && CONFIG.API_BASE_URL ? CONFIG.API_BASE_URL : 'http://localhost:5000/api';
+    const fullUrl = url.startsWith('http') ? url : `${base}${url.startsWith('/') ? '' : '/'}${url}`;
+
+    const token = localStorage.getItem('pos_token');
+    const headers = {
+      'Content-Type': 'application/json'
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const config = {
+      method: method.toUpperCase(),
+      headers: headers
+    };
+
+    if (bodyData && (method.toUpperCase() === 'POST' || method.toUpperCase() === 'PUT' || method.toUpperCase() === 'PATCH')) {
+      config.body = JSON.stringify(bodyData);
+    }
+
+    const response = await fetch(fullUrl, config);
+    
+    // Kung unauthorized, i-redirect sa login
+    if (response.status === 401) {
+      localStorage.removeItem('pos_user');
+      localStorage.removeItem('pos_token');
+      location.reload();
+      throw new Error('Session expired. Please log in again.');
+    }
+
     const data = await response.json();
     if (!response.ok) {
-      if (response.status === 401) {
-        localStorage.removeItem('pos_token');
-        localStorage.removeItem('pos_user');
-        document.getElementById('loginScreen').style.display = 'flex';
-      }
-      throw new Error(data.message || 'An API error occurred.');
+      throw new Error(data.message || 'Something went wrong on the server.');
     }
     return data;
-  } catch (err) {
-    console.error('API Error:', err.message);
-    throw err;
+  } catch (error) {
+    console.error(`API Error [${method} ${url}]:`, error);
+    throw error;
   } finally {
     hideLoading();
   }

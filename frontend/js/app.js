@@ -2,7 +2,7 @@
    DAIHO AUTOPARTS POS — PRODUCTION FRONTEND APPLICATION SCRIPT
    ============================================================================
    TABLE OF CONTENTS (NAVIGATION GUIDE):
-   01. Security, Date, Currency & Price Letter-Code Helpers
+   01. Security, Date, Currency, Price Letter-Code & Toast Helpers
    02. Global Application State
    03. Backend Data Synchronization & Topbar Alerts
    04. Authentication, Role Restrictions, Remember Username & Session Persistence
@@ -17,8 +17,8 @@
    13. Supplier & User Management + App Initialization
    ============================================================================ */
 
-   /* ============================================================================
-   01. SECURITY, DATE, CURRENCY & PRICE LETTER-CODE HELPERS
+/* ============================================================================
+   01. SECURITY, DATE, CURRENCY, PRICE LETTER-CODE & TOAST HELPERS
    ============================================================================ */
 
 function escapeHtml(value) {
@@ -58,20 +58,53 @@ function formatCurrency(val) {
   });
 }
 
+// Standardized Toast Notification Function (Replaces all browser alerts)
+function showToast(message, type = 'success') {
+  const container = document.getElementById('toastContainer');
+  if (!container) return;
+
+  const toast = document.createElement('div');
+  toast.className = 'toast-item';
+
+  let borderColor = '#16A34A'; // Green (Success)
+  let iconName = 'check-circle';
+  
+  if (type === 'error') {
+    borderColor = '#DC2626'; // Red (Error)
+    iconName = 'alert-circle';
+  } else if (type === 'warning' || type === 'info') {
+    borderColor = '#FF6600'; // Orange (Warning/Info)
+    iconName = 'info';
+  }
+
+  toast.style.borderLeft = `4px solid ${borderColor}`;
+  toast.style.display = 'flex';
+  toast.style.alignItems = 'center';
+  toast.style.gap = '10px';
+  toast.style.minWidth = '280px';
+  toast.style.boxShadow = '0 10px 25px rgba(0, 0, 0, 0.25)';
+  toast.style.animation = 'slideInRight 0.3s ease forwards';
+
+  toast.innerHTML = `
+    <i data-lucide="${iconName}" style="color: ${borderColor}; width: 20px; height: 20px; flex-shrink: 0;"></i>
+    <span style="flex: 1; font-size: 13px; font-weight: 600; color: #FFFFFF;">${escapeHtml(message)}</span>
+  `;
+
+  container.appendChild(toast);
+  refreshLucideIcons();
+
+  setTimeout(() => {
+    toast.style.animation = 'slideOutRight 0.3s ease forwards';
+    setTimeout(() => toast.remove(), 300);
+  }, 3500);
+}
+
 // Kino-convert ang whole number price patungong letter code (hal. 280.00 -> WPL)
 function encodePriceToLetters(val) {
   const wholeNum = Math.trunc(Number(val) || 0);
   const codeMap = {
-    '1': 'M',
-    '2': 'W',
-    '3': 'A',
-    '4': 'N',
-    '5': 'D',
-    '6': 'E',
-    '7': 'R',
-    '8': 'P',
-    '9': 'O',
-    '0': 'L'
+    '1': 'M', '2': 'W', '3': 'A', '4': 'N', '5': 'D',
+    '6': 'E', '7': 'R', '8': 'P', '9': 'O', '0': 'L'
   };
 
   return String(wholeNum)
@@ -112,6 +145,15 @@ function getUserInitials(name) {
   return clean.slice(0, 2).toUpperCase();
 }
 
+function debounce(func, delay = 300) {
+  let timer;
+  return function(...args) {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      func.apply(this, args);
+    }, delay);
+  };
+}
 
 /* ============================================================================
    02. GLOBAL APPLICATION STATE
@@ -126,11 +168,9 @@ let registeredSuppliers = [];
 
 let activeSelectedBatchForSale = null;
 
-// Chart.js Instances
 let salesChartInstance = null;
 let brandChartInstance = null;
 
-// Financial Reports Drill-Down State
 let activeReportLevel = 'yearly';
 let currentSelectedYear = new Date().getFullYear().toString();
 let currentSelectedMonth = String(new Date().getMonth() + 1).padStart(2, '0');
@@ -141,46 +181,54 @@ const monthNames = [
   'July', 'August', 'September', 'October', 'November', 'December'
 ];
 
-// Image Upload & Lightbox Gallery State
 let currentUploadedImages = [];
 let modalActiveImages = [];
 let activeModalImgIndex = 0;
 
-// Live Barcode Camera Scanner State
 let html5QrCode = null;
 let isCameraActive = false;
 let isCameraStarting = false;
 let lastScannedCode = '';
 let lastScanTime = 0;
 
-
 /* ============================================================================
    03. BACKEND DATA SYNCHRONIZATION & TOPBAR ALERTS
    ============================================================================ */
 
-async function loadProductionDataFromBackend() {
+async function loadProductionDataFromBackend(options = {}) {
   try {
+    const { skipMasters = false, skipUsers = false, skipSuppliers = false } = options;
+
     const [mastersRes, variantsRes, salesRes, usersRes, suppliersRes] = await Promise.all([
-      apiRequest('/masters', 'GET').catch(() => []),
+      skipMasters ? Promise.resolve(null) : apiRequest('/masters', 'GET').catch(() => []),
       apiRequest('/variants', 'GET').catch(() => []),
       apiRequest('/sales', 'GET').catch(() => []),
-      apiRequest('/users', 'GET').catch(() => []),
-      apiRequest('/suppliers', 'GET').catch(() => [])
+      skipUsers ? Promise.resolve(null) : apiRequest('/users', 'GET').catch(() => []),
+      skipSuppliers ? Promise.resolve(null) : apiRequest('/suppliers', 'GET').catch(() => [])
     ]);
 
-    masterItems = Array.isArray(mastersRes) ? mastersRes : (mastersRes.masters || []);
-    inventoryBatches = Array.isArray(variantsRes) ? variantsRes : (variantsRes.variants || []);
-    salesTransactions = Array.isArray(salesRes) ? salesRes : (salesRes.sales || []);
-    systemUsers = Array.isArray(usersRes) ? usersRes : (usersRes.users || systemUsers);
-    registeredSuppliers = Array.isArray(suppliersRes) ? suppliersRes : (suppliersRes.suppliers || []);
+    if (mastersRes !== null) {
+      masterItems = Array.isArray(mastersRes) ? mastersRes : (mastersRes.masters || []);
+    }
+    if (variantsRes) {
+      inventoryBatches = Array.isArray(variantsRes) ? variantsRes : (variantsRes.variants || []);
+    }
+    if (salesRes) {
+      salesTransactions = Array.isArray(salesRes) ? salesRes : (salesRes.sales || []);
+    }
+    if (usersRes !== null) {
+      systemUsers = Array.isArray(usersRes) ? usersRes : (usersRes.users || systemUsers);
+    }
+    if (suppliersRes !== null) {
+      registeredSuppliers = Array.isArray(suppliersRes) ? suppliersRes : (suppliersRes.suppliers || []);
+      updateSupplierDropdowns();
+    }
 
-    updateSupplierDropdowns();
     updateTopbarAlertBadge();
-
-    console.log('✅ Production data & suppliers successfully loaded from database.');
+    console.log('✅ Production data successfully synchronized.', options);
   } catch (error) {
     console.error('❌ Error loading production data:', error);
-    alert('Nabigong makuha ang data mula sa server. Suriin ang koneksyon.');
+    showToast('Nabigong makuha ang data mula sa server. Suriin ang koneksyon.', 'error');
   }
 }
 
@@ -201,7 +249,6 @@ function updateTopbarAlertBadge() {
     alertDot.style.display = 'none';
   }
 }
-
 
 /* ============================================================================
    04. AUTHENTICATION, ROLE RESTRICTIONS & SESSION PERSISTENCE
@@ -243,76 +290,78 @@ async function handleLoginSubmit(event) {
   const errorMsg = document.getElementById('loginErrorMsg');
   const submitBtn = document.getElementById('loginSubmitBtn');
 
-    if (!userIn || !passIn) {
-      if (errorMsg) {
-        errorMsg.style.display = 'flex';
-        errorMsg.textContent = '⚠️ Ilagay ang iyong Username at Password.';
-      }
-      return;
+  if (!userIn || !passIn) {
+    if (errorMsg) {
+      errorMsg.style.display = 'flex';
+      errorMsg.textContent = '⚠️ Ilagay ang iyong Username at Password.';
+    }
+    showToast('⚠️ Ilagay ang iyong Username at Password.', 'warning');
+    return;
+  }
+
+  if (errorMsg) errorMsg.style.display = 'none';
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="btn-text">SIGNING IN...</span>';
+  }
+
+  try {
+    const authRes = await apiRequest('/auth/login', 'POST', {
+      username: userIn,
+      password: passIn
+    });
+
+    const authenticatedUser = authRes?.user || authRes?.data;
+    if (!authenticatedUser) {
+      throw new Error('Hindi wasto ang tugon mula sa authentication server.');
     }
 
-    if (errorMsg) errorMsg.style.display = 'none';
+    if (rememberChecked) {
+      localStorage.setItem('pos_remembered_username', userIn);
+    } else {
+      localStorage.removeItem('pos_remembered_username');
+    }
+
+    loggedInUser = authenticatedUser;
+    localStorage.setItem('pos_user', JSON.stringify(authenticatedUser));
+    if (authRes.token) {
+      localStorage.setItem('pos_token', authRes.token);
+    }
+
+    const loginScreen = document.getElementById('loginScreen');
+    if (loginScreen) loginScreen.style.display = 'none';
+
+    const loginForm = document.getElementById('loginForm');
+    if (loginForm) loginForm.reset();
+
+    applyUserProfileToTopbar(loggedInUser);
+    showToast(`Maligayang pagdating, ${authenticatedUser.fullName || authenticatedUser.username}!`, 'success');
+
+    await loadProductionDataFromBackend();
+    applyUserRoleRestrictions();
+
+    if (loggedInUser.role !== 'CASHIER') {
+      switchView('view-dashboard', document.querySelector('.nav-item[data-view="view-dashboard"]'));
+    }
+  } catch (err) {
+    console.error('Login Failed:', err);
+    if (errorMsg) {
+      errorMsg.style.display = 'flex';
+      errorMsg.textContent = `❌ ${err.message || 'Mali ang Username o Password!'}`;
+    }
+    showToast(err.message || 'Mali ang Username o Password!', 'error');
+  } finally {
     if (submitBtn) {
-      submitBtn.disabled = true;
-      submitBtn.innerHTML = '<span class="btn-text">SIGNING IN...</span>';
-    }
-
-    try {
-      const authRes = await apiRequest('/auth/login', 'POST', {
-        username: userIn,
-        password: passIn
-      });
-
-      const authenticatedUser = authRes?.user || authRes?.data;
-      if (!authenticatedUser) {
-        throw new Error('Hindi wasto ang tugon mula sa authentication server.');
-      }
-
-      if (rememberChecked) {
-        localStorage.setItem('pos_remembered_username', userIn);
-      } else {
-        localStorage.removeItem('pos_remembered_username');
-      }
-
-      loggedInUser = authenticatedUser;
-      localStorage.setItem('pos_user', JSON.stringify(authenticatedUser));
-      if (authRes.token) {
-        localStorage.setItem('pos_token', authRes.token);
-      }
-
-      const loginScreen = document.getElementById('loginScreen');
-      if (loginScreen) loginScreen.style.display = 'none';
-
-      const loginForm = document.getElementById('loginForm');
-      if (loginForm) loginForm.reset();
-
-      applyUserProfileToTopbar(loggedInUser);
-
-      await loadProductionDataFromBackend();
-      applyUserRoleRestrictions();
-
-      if (loggedInUser.role !== 'CASHIER') {
-        switchView('view-dashboard', document.querySelector('.nav-item[data-view="view-dashboard"]'));
-      }
-    } catch (err) {
-      console.error('Login Failed:', err);
-      if (errorMsg) {
-        errorMsg.style.display = 'flex';
-        errorMsg.textContent = `❌ ${err.message || 'Mali ang Username o Password!'}`;
-      }
-    } finally {
-      if (submitBtn) {
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = '<span class="btn-text">SIGN IN TO WORKSPACE</span>';
-      }
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = '<span class="btn-text">SIGN IN TO WORKSPACE</span>';
     }
   }
+}
 
 async function restoreSessionOnReload() {
   const savedUserRaw = localStorage.getItem('pos_user');
   const loginScreen = document.getElementById('loginScreen');
 
-  // Pre-fill remembered username if saved
   const rememberedUser = localStorage.getItem('pos_remembered_username');
   if (rememberedUser) {
     const uInput = document.getElementById('loginUsernameInput');
@@ -368,6 +417,7 @@ function handleLogout() {
 
     const loginScreen = document.getElementById('loginScreen');
     if (loginScreen) loginScreen.style.display = 'flex';
+    showToast('Matagumpay kang nag-logout.', 'info');
   }
 }
 
@@ -460,7 +510,6 @@ function handleGlobalSearchKey(event) {
   const query = (event.target.value || '').trim().toUpperCase();
   if (!query) return;
 
-  // Kung naka-login ang Cashier, sa POS search dadalhin
   if (loggedInUser && loggedInUser.role === 'CASHIER') {
     switchView('view-sale');
     const saleInput = document.getElementById('saleSearchInput');
@@ -471,7 +520,6 @@ function handleGlobalSearchKey(event) {
     return;
   }
 
-  // Para sa Admin/Manager, dadalhin sa Central Inventory at sasalain agad
   switchView('view-inventory');
   const invInput = document.getElementById('inventorySearch');
   if (invInput) {
@@ -485,11 +533,11 @@ function switchView(viewId, element) {
 
   const cashierAllowedViews = ['view-sale', 'view-master'];
   if (loggedInUser.role === 'CASHIER' && !cashierAllowedViews.includes(viewId)) {
-    alert('Restricted access: Cashier can only access POS Checkout and Master Item.');
+    showToast('Restricted access: Cashier can only access POS Checkout and Master Item.', 'warning');
     return;
   }
   if (loggedInUser.role === 'MANAGER' && viewId === 'view-users') {
-    alert('Restricted access: Managers cannot access System Users.');
+    showToast('Restricted access: Managers cannot access System Users.', 'warning');
     return;
   }
 
@@ -543,7 +591,6 @@ function switchView(viewId, element) {
   refreshLucideIcons();
 }
 
-
 /* ============================================================================
    06. EXECUTIVE DASHBOARD & CHARTS
    ============================================================================ */
@@ -571,7 +618,6 @@ function renderDashboard() {
 
   updateTopbarAlertBadge();
 
-  // Critical Stock / Reorder Table
   const reorderBody = document.getElementById('dashReorderTableBody');
   if (reorderBody) {
     reorderBody.innerHTML = '';
@@ -597,7 +643,6 @@ function renderDashboard() {
     }
   }
 
-  // Recent Sales Table
   const recentBody = document.getElementById('dashRecentSalesBody');
   if (recentBody) {
     recentBody.innerHTML = '';
@@ -678,7 +723,6 @@ function renderDashboardCharts() {
     }
   });
 
-  // Top Selling Items Doughnut Chart
   const itemSalesMap = {};
   salesTransactions.forEach(t => {
     const items = t.items || t.transaction_items || [];
@@ -725,7 +769,6 @@ function renderDashboardCharts() {
   });
 }
 
-
 /* ============================================================================
    07. POS CHECKOUT (5 SUB-VIEWS), CAMERA SCANNER & DIRECT SALE MODAL
    ============================================================================ */
@@ -760,7 +803,7 @@ function toggleCameraScanner() {
 function startCameraScanner() {
   if (isCameraActive || isCameraStarting) return;
   if (typeof Html5Qrcode === 'undefined') {
-    alert('Camera scanner library not loaded.');
+    showToast('Camera scanner library not loaded.', 'error');
     return;
   }
 
@@ -791,7 +834,7 @@ function startCameraScanner() {
   }).catch(() => {
     isCameraStarting = false;
     isCameraActive = false;
-    alert('Camera start failed. Ensure HTTPS or localhost.');
+    showToast('Camera start failed. Ensure HTTPS or localhost.', 'error');
     if (wrapper) wrapper.style.display = 'none';
   });
 }
@@ -825,7 +868,7 @@ function handleCameraScanSuccess(scannedCode) {
   if (batch) {
     openConfirmSaleModal(batch.code || batch.variant_code);
   } else {
-    alert(`Hindi mahanap ang item para sa Barcode: ${scannedCode}`);
+    showToast(`Hindi mahanap ang item para sa Barcode: ${scannedCode}`, 'warning');
   }
 }
 
@@ -842,7 +885,7 @@ function handleSaleBarcodeKey(event) {
       openConfirmSaleModal(exactBatch.code || exactBatch.variant_code);
       event.target.value = '';
     } else {
-      alert(`Hindi mahanap ang item para sa Barcode/Code: "${query}"`);
+      showToast(`Hindi mahanap ang item para sa Barcode/Code: "${query}"`, 'warning');
     }
   }
 }
@@ -936,7 +979,7 @@ function renderSaleGrid() {
           ${renderCardMedia(master)}
         </div>
         <div class="item-title">${escapeHtml(pName)} - ${escapeHtml(master.oem)}</div>
-        <div class="item-oem">${escapeHtml(master.brand)} | VEHICLE : ${escapeHtml(master.make || '')} ${escapeHtml(master.model || '')}</div>
+        <div class="item-oem">${escapeHtml(master.brand)} | VEHICLE : ${escapeHtml(master.make || '')} ${escapeHtml(master.model || '')}${master.engine ? ' (' + escapeHtml(master.engine) + ')' : ''}</div>
         <div class="item-subtitle">VARIANT: ${escapeHtml(bCode)} | ${escapeHtml(batch.supplier)}</div>
       </div>
       <div class="card-footer">
@@ -948,19 +991,27 @@ function renderSaleGrid() {
   });
 }
 
-// --- Direct Sale Modal Controls ---
-function openConfirmSaleModal(batchCode) {
+async function openConfirmSaleModal(batchCode) {
   const batch = inventoryBatches.find(b => (b.code || b.variant_code) === batchCode);
   if (!batch) return;
 
   if (Number(batch.stock) <= 0) {
-    alert('⚠️ Out of stock na ang item/variant na ito!');
+    showToast('⚠️ Out of stock na ang item/variant na ito!', 'warning');
     return;
   }
 
   const mId = batch.masterId || batch.master_id;
   const master = masterItems.find(m => Number(m.id) === Number(mId)) || { partName: 'ITEM', part_name: 'ITEM', oem: '' };
   activeSelectedBatchForSale = batch;
+
+  let itemImages = [];
+  try {
+    const imgRes = await apiRequest(`/masters/${mId}/images`, 'GET');
+    itemImages = imgRes.images || [];
+  } catch (err) {
+    console.error('Error fetching sale modal images:', err);
+    itemImages = master.images || [];
+  }
 
   document.getElementById('saleBatchCodeInput').value = batch.code || batch.variant_code;
   document.getElementById('confirmSaleSubTitle').textContent = `${master.partName || master.part_name} (${master.oem})`;
@@ -971,14 +1022,13 @@ function openConfirmSaleModal(batchCode) {
   const paymentSelectEl = document.getElementById('salePaymentMethodInput');
   if (paymentSelectEl) paymentSelectEl.value = 'CASH';
 
-  const images = master.images || master.image_urls || [];
-  modalActiveImages = images;
+  modalActiveImages = itemImages;
 
   const galleryEl = document.getElementById('confirmImageGallery');
   if (galleryEl) {
-    if (images.length > 0) {
+    if (itemImages.length > 0) {
       galleryEl.style.display = 'flex';
-      galleryEl.innerHTML = images.map((img, idx) => `
+      galleryEl.innerHTML = itemImages.map((img, idx) => `
         <img src="${escapeHtml(img)}" 
              style="width: 64px; height: 64px; object-fit: cover; border-radius: 6px; cursor: pointer; border: 2px solid #FF6600; transition: transform 0.2s;" 
              onclick="openLightbox(${idx})" 
@@ -1035,30 +1085,30 @@ async function confirmDirectSale(event) {
   const paymentMethod = document.getElementById('salePaymentMethodInput')?.value || 'CASH';
 
   if (isNaN(sellingPrice) || sellingPrice <= 0) {
-    alert('⚠️ Kailangang mas mataas sa ₱0.00 ang Selling Price!');
+    showToast('⚠️ Kailangang mas mataas sa ₱0.00 ang Selling Price!', 'warning');
     document.getElementById('salePriceInput').focus();
     return;
   }
 
   if (sellingPrice < unitCost) {
-    alert(`⚠️ Hindi pwedeng mas mababa sa puhunan/cost (₱${formatCurrency(unitCost)}) ang Selling Price!`);
+    showToast(`⚠️ Hindi pwedeng mas mababa sa puhunan/cost (₱${formatCurrency(unitCost)}) ang Selling Price!`, 'warning');
     document.getElementById('salePriceInput').focus();
     return;
   }
 
   if (isNaN(qty) || qty <= 0) {
-    alert('⚠️ Kailangang hindi bababa sa 1 ang Quantity to Sell!');
+    showToast('⚠️ Kailangang hindi bababa sa 1 ang Quantity to Sell!', 'warning');
     document.getElementById('saleQtyInput').focus();
     return;
   }
 
   if (qty > Number(batch.stock)) {
-    alert(`⚠️ Hindi pwedeng lumagpas sa available stock (${formatNumber(batch.stock)} pcs)!`);
+    showToast(`⚠️ Hindi pwedeng lumagpas sa available stock (${formatNumber(batch.stock)} pcs)!`, 'warning');
     return;
   }
 
   if (paymentMethod !== 'CASH' && paymentMethod !== 'GCASH') {
-    alert('⚠️ Pumili lamang ng CASH o G-CASH bilang Payment Method!');
+    showToast('⚠️ Pumili lamang ng CASH o G-CASH bilang Payment Method!', 'warning');
     return;
   }
 
@@ -1079,29 +1129,21 @@ async function confirmDirectSale(event) {
     await apiRequest('/sales', 'POST', salePayload);
     batch.stock = Number(batch.stock) - qty;
 
-    const paymentLabel = paymentMethod === 'GCASH' ? 'G-CASH' : 'CASH';
-    alert(
-      `✅ Direct Sale Confirmed & Saved!\n` +
-      `--------------------\n` +
-      `Item: ${master.partName || master.part_name}\n` +
-      `Unit Price: ₱${formatCurrency(sellingPrice)}\n` +
-      `Qty: ${formatNumber(qty)}\n` +
-      `Payment: ${paymentLabel}\n` +
-      `Total Amount: ₱${formatCurrency(totalAmount)}`
-    );
+    showToast(`✅ Successfully Saved! Benta para sa ${master.partName || master.part_name} ay naitala na.`, 'success');
 
     closeConfirmSaleModal();
-    await loadProductionDataFromBackend();
+    
+    await loadProductionDataFromBackend({ skipMasters: true, skipUsers: true, skipSuppliers: true });
+    
     renderSaleGrid();
     if (typeof renderSalesLog === 'function') renderSalesLog();
     if (typeof renderDashboard === 'function') renderDashboard();
     if (typeof renderReportsModule === 'function') renderReportsModule();
   } catch (err) {
     console.error('Sale Save Error:', err);
-    alert(`❌ Nabigong i-save ang benta sa database: ${err.message}`);
+    showToast(`❌ Nabigong i-save ang benta sa database: ${err.message}`, 'error');
   }
 }
-
 
 /* ============================================================================
    08. DAILY SALES & RECEIPTS LOG
@@ -1182,7 +1224,6 @@ function renderSalesLog() {
   document.getElementById('salesTxnCount').textContent = formatNumber(filteredTxns.length);
   document.getElementById('salesItemsCount').textContent = `(${formatNumber(totalPcs)} pcs)`;
 }
-
 
 /* ============================================================================
    09. FINANCIAL & PERFORMANCE REPORTS (YEARLY / MONTHLY / DAILY)
@@ -1379,15 +1420,36 @@ function renderDailyReport() {
   document.getElementById('dyNetProfit').textContent = `₱${formatCurrency(dyProfit)}`;
 }
 
-
 /* ============================================================================
    10. MASTER ITEM REGISTRATION & CATALOG GRID
    ============================================================================ */
 
+function switchMasterSubView(subViewId, btnElement) {
+  document.querySelectorAll('.master-subview-content').forEach(view => {
+    view.style.display = 'none';
+  });
+
+  document.querySelectorAll('.master-subtab-btn').forEach(btn => {
+    btn.classList.remove('active');
+  });
+
+  const targetView = document.getElementById(subViewId);
+  if (targetView) targetView.style.display = 'block';
+
+  if (btnElement) {
+    btnElement.classList.add('active');
+  }
+
+  if (subViewId === 'subview-master-list') {
+    renderStep1Grid();
+  }
+  refreshLucideIcons();
+}
+
 function handleImageUpload(event) {
   const files = Array.from(event.target.files);
   if (currentUploadedImages.length + files.length > 10) {
-    alert('Maximum 10 pictures allowed per item!');
+    showToast('Maximum 10 pictures allowed per item!', 'warning');
   }
 
   const availableSlots = 10 - currentUploadedImages.length;
@@ -1478,7 +1540,7 @@ function renderStep1Grid() {
       <div>
         <div class="card-img-placeholder">${renderCardMedia(item)}</div>
         <div class="item-title">${escapeHtml(pName)} - ${escapeHtml(item.oem)}</div>
-        <div class="item-oem">${escapeHtml(item.brand)} | VEHICLE : ${escapeHtml(item.make || '')} ${escapeHtml(item.model || '')}</div>
+        <div class="item-oem">${escapeHtml(item.brand)} | VEHICLE : ${escapeHtml(item.make || '')} ${escapeHtml(item.model || '')}${item.engine ? ' (' + escapeHtml(item.engine) + ')' : ''}</div>
         <div class="item-subtitle">${escapeHtml(item.engine ? '(' + item.engine + ')' : '')}</div>
       </div>
     `;
@@ -1511,32 +1573,40 @@ document.getElementById('masterForm')?.addEventListener('submit', async function
     const response = await apiRequest('/masters', 'POST', newMasterPayload);
     if (response) {
       await loadProductionDataFromBackend();
-      renderStep1Grid();
       this.reset();
       currentUploadedImages = [];
       renderFormImagePreviews();
-      alert('✅ Master Item saved successfully to database!');
+      showToast('✅ Successfully Saved! Master Item ay nairehistro na sa database.', 'success');
+
+      const listTabBtn = document.querySelectorAll('.master-subtab-btn')[1];
+      switchMasterSubView('subview-master-list', listTabBtn);
     }
   } catch (err) {
     console.error('Error saving master item:', err);
-    alert(`❌ Nabigong i-save ang Master Item: ${err.message}`);
+    showToast(`❌ Nabigong i-save ang Master Item: ${err.message}`, 'error');
   }
 });
-
 
 /* ============================================================================
    11. ITEM DETAILS MODAL & FULLSCREEN IMAGE LIGHTBOX
    ============================================================================ */
 
-function openItemModal(index) {
+async function openItemModal(index) {
   const item = masterItems[index];
   if (!item) return;
 
   const pName = item.partName || item.part_name || 'ITEM';
   document.getElementById('modalPartName').textContent = `${toUpper(pName)} - ${toUpper(item.oem)}`;
-  document.getElementById('modalOemSubtitle').textContent = `${toUpper(item.brand)} | ${toUpper(item.make)} ${toUpper(item.model)}`;
+  document.getElementById('modalOemSubtitle').textContent = `${toUpper(item.brand)} | ${toUpper(item.make)} ${toUpper(item.model)}${item.engine ? ' (' + toUpper(item.engine) + ')' : ''}`;
+  
+  try {
+    const imgRes = await apiRequest(`/masters/${item.id}/images`, 'GET');
+    modalActiveImages = imgRes.images || [];
+  } catch (err) {
+    console.error('Error fetching all item images for modal:', err);
+    modalActiveImages = item.images || [];
+  }
 
-  modalActiveImages = item.images || item.image_urls || [];
   activeModalImgIndex = 0;
   renderModalGallery();
 
@@ -1646,7 +1716,6 @@ function closeLightboxOnOverlay(e) {
   if (e.target.id === 'lightboxOverlay') closeLightbox();
 }
 
-
 /* ============================================================================
    12. CENTRAL INVENTORY, VARIANT CODING, THERMAL PRINT & RESTOCK
    ============================================================================ */
@@ -1678,7 +1747,6 @@ function goToInventoryAndRestock(batchCode) {
   openRestockModal(batchCode);
 }
 
-// --- Restock Modal Controls ---
 function openRestockModal(batchCode) {
   const batch = inventoryBatches.find(b => (b.code || b.variant_code) === batchCode);
   if (!batch) return;
@@ -1700,7 +1768,6 @@ function closeRestockOnOverlay(e) {
   if (e.target.id === 'restockModal') closeRestockModal();
 }
 
-// --- Auto-Print Barcode Stickers Function (Returns Promise pagkatapos magsara ng Print Dialog) ---
 function printVariantBarcodes(batchCode, qty) {
   return new Promise((resolve) => {
     const count = parseInt(qty, 10) || 0;
@@ -1710,7 +1777,7 @@ function printVariantBarcodes(batchCode, qty) {
     }
 
     if (typeof JsBarcode === 'undefined') {
-      alert('⚠️ Hindi naka-load ang JsBarcode library para sa pag-print.');
+      showToast('⚠️ Hindi naka-load ang JsBarcode library para sa pag-print.', 'error');
       resolve(false);
       return;
     }
@@ -1821,7 +1888,6 @@ function printVariantBarcodes(batchCode, qty) {
   });
 }
 
-// --- Restock Form Submit Handler (Print Muna Bago Mag-Save sa Database) ---
 document.getElementById('restockForm')?.addEventListener('submit', async function(e) {
   e.preventDefault();
 
@@ -1830,7 +1896,7 @@ document.getElementById('restockForm')?.addEventListener('submit', async functio
   const submitBtn = this.querySelector('button[type="submit"]');
 
   if (addQty <= 0) {
-    alert('⚠️ Maglagay ng wastong dami ng stock na idadagdag.');
+    showToast('⚠️ Maglagay ng wastong dami ng stock na idadagdag.', 'warning');
     return;
   }
 
@@ -1847,23 +1913,22 @@ document.getElementById('restockForm')?.addEventListener('submit', async functio
     );
 
     if (!isPrinted) {
-      alert('ℹ️ Kinansela ang pag-print. Walang naidagdag na stock sa inventory.');
+      showToast('ℹ️ Kinansela ang pag-print. Walang naidagdag na stock.', 'info');
       return;
     }
 
     await apiRequest(`/variants/${batchCode}/restock`, 'PATCH', { addQty });
     closeRestockModal();
-    await loadProductionDataFromBackend();
+    await loadProductionDataFromBackend({ skipMasters: true, skipUsers: true, skipSuppliers: true });
     renderInventoryGrid();
-    alert(`✅ Na-print na ang barcodes at naidagdag ang +${formatNumber(addQty)} stock para sa ${batchCode}!`);
+    showToast(`✅ Successfully Saved! Naidagdag ang +${formatNumber(addQty)} stock sa inventory.`, 'success');
   } catch (err) {
-    alert(`❌ Nabigong mag-restock: ${err.message}`);
+    showToast(`❌ Nabigong mag-restock: ${err.message}`, 'error');
   } finally {
     if (submitBtn) submitBtn.disabled = false;
   }
 });
 
-// --- New Supplier Variant Modal Controls ---
 function openQuickCodingModal(masterId) {
   const master = masterItems.find(m => Number(m.id) === Number(masterId));
   if (!master) return;
@@ -1895,7 +1960,7 @@ document.getElementById('quickCodingForm')?.addEventListener('submit', async fun
   const lowStockLimit = parseInt(document.getElementById('qLowStockInput').value, 10) || 2;
 
   if (!supplier) {
-    alert('⚠️ Pumili muna ng rehistradong supplier.');
+    showToast('⚠️ Pumili muna ng rehistradong supplier.', 'warning');
     return;
   }
 
@@ -1912,9 +1977,9 @@ document.getElementById('quickCodingForm')?.addEventListener('submit', async fun
     closeQuickCodingModal();
     await loadProductionDataFromBackend();
     renderInventoryGrid();
-    alert('✅ Matagumpay na naidagdag ang bagong variant sa database!');
+    showToast('✅ Successfully Saved! Bagong supplier variant coding ay naidagdag na.', 'success');
   } catch (err) {
-    alert(`❌ Nabigong magdagdag ng variant: ${err.message}`);
+    showToast(`❌ Nabigong magdagdag ng variant: ${err.message}`, 'error');
   }
 });
 
@@ -1965,7 +2030,7 @@ function renderInventoryGrid() {
             <div class="master-row-thumb">${renderCardMedia(master)}</div>
             <div>
               <div class="master-row-title">${escapeHtml(master.partName || master.part_name)} - ${escapeHtml(master.oem)}</div>
-              <div class="master-row-sub">${escapeHtml(master.brand)} | VEHICLE : ${escapeHtml(master.make || '')} ${escapeHtml(master.model || '')}</div>
+              <div class="master-row-sub">${escapeHtml(master.brand)} | VEHICLE : ${escapeHtml(master.make || '')} ${escapeHtml(master.model || '')}${master.engine ? ' (' + escapeHtml(master.engine) + ')' : ''}</div>
             </div>
           </div>
           <div class="master-row-actions">
@@ -2033,7 +2098,6 @@ function toggleInventoryBatchPanel(panelId) {
   }
 }
 
-
 /* ============================================================================
    13. SUPPLIER & USER MANAGEMENT + APP INITIALIZATION
    ============================================================================ */
@@ -2084,9 +2148,9 @@ async function handleRegisterSupplierSubmit(event) {
     await apiRequest('/suppliers', 'POST', { name, contactPerson, phone, email });
     document.getElementById('supplierRegForm').reset();
     await renderSuppliersTable();
-    alert(`✅ Bagong supplier na si ${name} ay matagumpay na nairehistro!`);
+    showToast(`✅ Successfully Saved! Supplier na si ${name} ay nairehistro na.`, 'success');
   } catch (err) {
-    alert(`❌ Error: ${err.message}`);
+    showToast(`❌ Error: ${err.message}`, 'error');
   }
 }
 
@@ -2095,9 +2159,9 @@ async function deleteSupplier(suppId) {
     try {
       await apiRequest(`/suppliers/${suppId}`, 'DELETE');
       await renderSuppliersTable();
-      alert('✅ Supplier deleted successfully!');
+      showToast('✅ Supplier deleted successfully!', 'success');
     } catch (err) {
-      alert(`❌ Error: ${err.message}`);
+      showToast(`❌ Error: ${err.message}`, 'error');
     }
   }
 }
@@ -2152,18 +2216,18 @@ async function handleRegisterUserSubmit(event) {
   const role = roleSelect ? roleSelect.value : '';
 
   if (!fullName || !username || !password || !role) {
-    alert('⚠️ Mangyaring punan ang lahat ng kinakailangang impormasyon.');
+    showToast('⚠️ Mangyaring punan ang lahat ng kinakailangang impormasyon.', 'warning');
     return;
   }
 
   try {
     const response = await apiRequest('/users', 'POST', { fullName, username, password, role });
-    alert(`✅ Bagong account para kay ${response.full_name || response.user?.full_name || fullName} ay matagumpay na nairehistro!`);
+    showToast('✅ Successfully Saved! Bagong system user account ay nairehistro na.', 'success');
     document.getElementById('userRegForm').reset();
     await loadProductionDataFromBackend();
     renderUsersTable();
   } catch (err) {
-    alert(`❌ Nabigong magrehistro ng user: ${err.message}`);
+    showToast(`❌ Nabigong magrehistro ng user: ${err.message}`, 'error');
   }
 }
 
@@ -2173,18 +2237,39 @@ async function deleteSystemUser(userId) {
       await apiRequest(`/users/${userId}`, 'DELETE');
       await loadProductionDataFromBackend();
       renderUsersTable();
+      showToast('✅ Matagumpay na nabura ang user account.', 'success');
     } catch (err) {
       console.error('Delete user error:', err);
-      alert('Nabigong burahin ang user.');
+      showToast('Nabigong burahin ang user.', 'error');
     }
   }
 }
 
-// --- Application Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
   refreshLucideIcons();
   startLiveClock();
   const dateFilter = document.getElementById('salesDateFilter');
   if (dateFilter) dateFilter.value = getTodayString();
   restoreSessionOnReload();
+
+  const saleSearchInputEl = document.getElementById('saleSearchInput');
+  if (saleSearchInputEl) {
+    saleSearchInputEl.addEventListener('input', debounce(() => {
+      renderSaleGrid();
+    }, 300));
+  }
+
+  const inventorySearchInputEl = document.getElementById('inventorySearch');
+  if (inventorySearchInputEl) {
+    inventorySearchInputEl.addEventListener('input', debounce(() => {
+      renderInventoryGrid();
+    }, 300));
+  }
+
+  const step1SearchInputEl = document.getElementById('step1Search');
+  if (step1SearchInputEl) {
+    step1SearchInputEl.addEventListener('input', debounce(() => {
+      renderStep1Grid();
+    }, 300));
+  }
 });

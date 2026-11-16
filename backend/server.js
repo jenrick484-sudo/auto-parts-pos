@@ -1,4 +1,5 @@
 const express = require('express');
+const compression = require('compression');
 const cors = require('cors');
 require('dotenv').config();
 
@@ -8,6 +9,7 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // MIDDLEWARES
+app.use(compression());
 app.use(cors());
 app.use(express.json({ limit: '100mb' })); // EXPANDED LIMIT FOR BASE64 IMAGES IF APPLICABLE
 app.use(express.urlencoded({ extended: true }));

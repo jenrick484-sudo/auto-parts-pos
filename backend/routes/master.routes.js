@@ -12,4 +12,6 @@ router.get('/:id', verifyToken, masterController.getMasterById);
 // POST /api/masters - Mag-rehistro ng bagong Master Item (ADMIN at MANAGER lang ang may access)
 router.post('/', verifyToken, authorizeRoles('ADMIN', 'MANAGER'), masterController.createMaster);
 
+router.get('/:id/images', masterController.getMasterImage);
+
 module.exports = router;
