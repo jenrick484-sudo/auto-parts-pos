@@ -1491,6 +1491,27 @@ function resizeImageFile(file, maxWidth = 600, quality = 0.7) {
   });
 }
 
+// Ilagay sa itaas ng handleImageUpload sa Section 10
+const CLOUDINARY_CLOUD_NAME = 'nat1hpcg';
+const CLOUDINARY_UPLOAD_PRESET = 'daiho_pos_preset';
+
+async function uploadBlobToCloudinary(dataUrl) {
+  const formData = new FormData();
+  formData.append('file', dataUrl);
+  formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+  formData.append('folder', 'daiho_autoparts');
+
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
+    method: 'POST',
+    body: formData
+  });
+
+  if (!res.ok) throw new Error('Cloudinary upload failed');
+  const data = await res.json();
+  return data.secure_url;
+}
+
+// Palitan ang existing handleImageUpload ng version na ito:
 async function handleImageUpload(event) {
   const files = Array.from(event.target.files);
   if (currentUploadedImages.length + files.length > 10) {
@@ -1499,17 +1520,27 @@ async function handleImageUpload(event) {
   const availableSlots = 10 - currentUploadedImages.length;
   const filesToProcess = files.slice(0, availableSlots);
 
-  for (const file of filesToProcess) {
-    try {
-      const compressedDataUrl = await resizeImageFile(file, 600, 0.7);
-      currentUploadedImages.push(compressedDataUrl);
-    } catch (err) {
-      console.error('Image resize error:', err);
+  if (filesToProcess.length === 0) return;
+  showLoading('Ina-upload ang mga larawan sa cloud...');
+
+  try {
+    for (const file of filesToProcess) {
+      // I-compress muna sa 600px JPEG bago i-upload para sobrang bilis at tipid sa storage
+      const compressedDataUrl = await resizeImageFile(file, 600, 0.75);
+      const cloudinaryUrl = await uploadBlobToCloudinary(compressedDataUrl);
+      currentUploadedImages.push(cloudinaryUrl);
     }
+    renderFormImagePreviews();
+    showToast('✅ Na-upload na ang mga larawan!', 'success');
+  } catch (err) {
+    console.error('Upload error:', err);
+    showToast('❌ Nabigong i-upload ang larawan sa Cloudinary.', 'error');
+  } finally {
+    hideLoading();
+    event.target.value = '';
   }
-  renderFormImagePreviews();
-  event.target.value = '';
 }
+
 
 function renderFormImagePreviews() {
   const preview = document.getElementById('imagePreview');
@@ -2334,18 +2365,24 @@ document.addEventListener('DOMContentLoaded', () => {
   if (dateFilter) dateFilter.value = getTodayString();
   restoreSessionOnReload();
 
-    const saleSearchInputEl = document.getElementById('saleSearchInput');
+  const saleSearchInputEl = document.getElementById('saleSearchInput');
   if (saleSearchInputEl) {
-    saleSearchInputEl.addEventListener('input', renderSaleGrid);
+    saleSearchInputEl.addEventListener('input', debounce(() => {
+      renderSaleGrid();
+    }, 10));
   }
 
   const inventorySearchInputEl = document.getElementById('inventorySearch');
   if (inventorySearchInputEl) {
-    inventorySearchInputEl.addEventListener('input', renderInventoryGrid);
+    inventorySearchInputEl.addEventListener('input', debounce(() => {
+      renderInventoryGrid();
+    }, 10));
   }
 
   const step1SearchInputEl = document.getElementById('step1Search');
   if (step1SearchInputEl) {
-    step1SearchInputEl.addEventListener('input', renderStep1Grid);
+    step1SearchInputEl.addEventListener('input', debounce(() => {
+      renderStep1Grid();
+    }, 10));
   }
 });
