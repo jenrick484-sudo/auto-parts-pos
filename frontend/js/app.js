@@ -338,6 +338,7 @@ async function handleLoginSubmit(event) {
     showToast(`Maligayang pagdating, ${authenticatedUser.fullName || authenticatedUser.username}!`, 'success');
 
     await loadProductionDataFromBackend();
+
     applyUserRoleRestrictions();
 
     if (loggedInUser.role !== 'CASHIER') {
@@ -385,6 +386,7 @@ async function restoreSessionOnReload() {
     applyUserProfileToTopbar(loggedInUser);
 
     await loadProductionDataFromBackend();
+
     applyUserRoleRestrictions();
 
     const cashierAllowedViews = ['view-sale', 'view-master'];
@@ -586,7 +588,10 @@ function switchView(viewId, element) {
   if (viewId === 'view-master') renderStep1Grid();
   if (viewId === 'view-inventory') renderInventoryGrid();
   if (viewId === 'view-suppliers') renderSuppliersTable();
-  if (viewId === 'view-users') renderUsersTable();
+    if (viewId === 'view-users') {
+    loadProductionDataFromBackend({ skipMasters: true, skipSuppliers: true }).then(() => renderUsersTable());
+  }
+
 
   refreshLucideIcons();
 }
@@ -895,8 +900,7 @@ function renderSaleGrid() {
   if (!grid) return;
 
   const search = (document.getElementById('saleSearchInput')?.value || '').trim().toUpperCase();
-  grid.innerHTML = '';
-
+  const masterMap = new Map(masterItems.map(m => [Number(m.id), m]));
   let matchingVariants = [];
 
   if (search === '') {
@@ -918,10 +922,10 @@ function renderSaleGrid() {
       return;
     }
   } else {
-    matchingVariants = inventoryBatches.filter(batch => {
-      const mId = batch.masterId || batch.master_id;
-      const master = masterItems.find(m => Number(m.id) === Number(mId));
-      if (!master) return false;
+    for (let i = 0; i < inventoryBatches.length; i++) {
+      const batch = inventoryBatches[i];
+      const master = masterMap.get(Number(batch.masterId || batch.master_id));
+      if (!master) continue;
 
       const bCode = (batch.code || batch.variant_code || '').toUpperCase();
       const bBarcode = (batch.barcode || bCode).toUpperCase();
@@ -929,8 +933,17 @@ function renderSaleGrid() {
       const pName = (master.partName || master.part_name || '').toUpperCase();
       const brand = (master.brand || '').toUpperCase();
 
-      return bCode.includes(search) || bBarcode.includes(search) || oem.includes(search) || pName.includes(search) || brand.includes(search);
-    });
+      if (
+        bCode.includes(search) ||
+        bBarcode.includes(search) ||
+        oem.includes(search) ||
+        pName.includes(search) ||
+        brand.includes(search)
+      ) {
+        matchingVariants.push(batch);
+        if (matchingVariants.length >= 40) break;
+      }
+    }
 
     if (matchingVariants.length === 0) {
       grid.innerHTML = `
@@ -945,9 +958,10 @@ function renderSaleGrid() {
     }
   }
 
-  matchingVariants.forEach(batch => {
-    const mId = batch.masterId || batch.master_id;
-    const master = masterItems.find(m => Number(m.id) === Number(mId));
+  const fragment = document.createDocumentFragment();
+
+  matchingVariants.slice(0, 40).forEach(batch => {
+    const master = masterMap.get(Number(batch.masterId || batch.master_id));
     if (!master) return;
 
     const card = document.createElement('div');
@@ -987,9 +1001,13 @@ function renderSaleGrid() {
         <span class="stock-badge ${badgeClass}">${badgeText}</span>
       </div>
     `;
-    grid.appendChild(card);
+    fragment.appendChild(card);
   });
+
+  grid.innerHTML = '';
+  grid.appendChild(fragment);
 }
+
 
 async function openConfirmSaleModal(batchCode) {
   const batch = inventoryBatches.find(b => (b.code || b.variant_code) === batchCode);
@@ -1446,27 +1464,50 @@ function switchMasterSubView(subViewId, btnElement) {
   refreshLucideIcons();
 }
 
-function handleImageUpload(event) {
+function resizeImageFile(file, maxWidth = 600, quality = 0.7) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const img = new Image();
+      img.onload = function() {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function handleImageUpload(event) {
   const files = Array.from(event.target.files);
   if (currentUploadedImages.length + files.length > 10) {
     showToast('Maximum 10 pictures allowed per item!', 'warning');
   }
-
   const availableSlots = 10 - currentUploadedImages.length;
   const filesToProcess = files.slice(0, availableSlots);
 
-  let processedCount = 0;
-  filesToProcess.forEach(file => {
-    const reader = new FileReader();
-    reader.onload = function(e) {
-      currentUploadedImages.push(e.target.result);
-      processedCount++;
-      if (processedCount === filesToProcess.length) {
-        renderFormImagePreviews();
-      }
-    };
-    reader.readAsDataURL(file);
-  });
+  for (const file of filesToProcess) {
+    try {
+      const compressedDataUrl = await resizeImageFile(file, 600, 0.7);
+      currentUploadedImages.push(compressedDataUrl);
+    } catch (err) {
+      console.error('Image resize error:', err);
+    }
+  }
+  renderFormImagePreviews();
   event.target.value = '';
 }
 
@@ -1551,6 +1592,8 @@ function renderStep1Grid() {
 document.getElementById('masterForm')?.addEventListener('submit', async function(e) {
   e.preventDefault();
   const unitType = document.getElementById('unitInput').value;
+  const submitBtn = this.querySelector('button[type="submit"]');
+  if (submitBtn) submitBtn.disabled = true;
 
   const newMasterPayload = {
     oem: toUpper(document.getElementById('oemInput').value),
@@ -1572,11 +1615,17 @@ document.getElementById('masterForm')?.addEventListener('submit', async function
   try {
     const response = await apiRequest('/masters', 'POST', newMasterPayload);
     if (response) {
-      await loadProductionDataFromBackend();
+      const savedItem = response.master || response;
+      if (savedItem && savedItem.id) {
+        masterItems.unshift(savedItem);
+      } else {
+        await loadProductionDataFromBackend({ skipUsers: true, skipSuppliers: true });
+      }
+
       this.reset();
       currentUploadedImages = [];
       renderFormImagePreviews();
-      showToast('✅ Successfully Saved! Master Item ay nairehistro na sa database.', 'success');
+      showToast('✅ Successfully Saved! Master Item ay nairehistro na.', 'success');
 
       const listTabBtn = document.querySelectorAll('.master-subtab-btn')[1];
       switchMasterSubView('subview-master-list', listTabBtn);
@@ -1584,8 +1633,11 @@ document.getElementById('masterForm')?.addEventListener('submit', async function
   } catch (err) {
     console.error('Error saving master item:', err);
     showToast(`❌ Nabigong i-save ang Master Item: ${err.message}`, 'error');
+  } finally {
+    if (submitBtn) submitBtn.disabled = false;
   }
 });
+
 
 /* ============================================================================
    11. ITEM DETAILS MODAL & FULLSCREEN IMAGE LIGHTBOX
@@ -1975,7 +2027,7 @@ document.getElementById('quickCodingForm')?.addEventListener('submit', async fun
     });
 
     closeQuickCodingModal();
-    await loadProductionDataFromBackend();
+    await loadProductionDataFromBackend({ skipMasters: true, skipUsers: true, skipSuppliers: true });
     renderInventoryGrid();
     showToast('✅ Successfully Saved! Bagong supplier variant coding ay naidagdag na.', 'success');
   } catch (err) {
@@ -1988,113 +2040,143 @@ function renderInventoryGrid() {
   const searchInput = document.getElementById('inventorySearch');
   if (!container) return;
 
-  const search = searchInput ? searchInput.value.toUpperCase() : '';
-  container.innerHTML = '';
+  const search = searchInput ? searchInput.value.trim().toUpperCase() : '';
 
-  const sortedMasterItems = [...masterItems].sort((a, b) => {
-    const stockA = getMasterItemTotalStock(a.id);
-    const stockB = getMasterItemTotalStock(b.id);
-    const isOutA = stockA === 0 ? 0 : 1;
-    const isOutB = stockB === 0 ? 0 : 1;
-    if (isOutA !== isOutB) return isOutA - isOutB;
-    const pA = a.partName || a.part_name || '';
-    const pB = b.partName || b.part_name || '';
-    return pA.localeCompare(pB);
+  const batchesByMaster = new Map();
+  inventoryBatches.forEach(b => {
+    const mId = Number(b.masterId || b.master_id);
+    if (!batchesByMaster.has(mId)) batchesByMaster.set(mId, []);
+    batchesByMaster.get(mId).push(b);
   });
 
-  sortedMasterItems.forEach((master, mIdx) => {
-    const mId = master.id;
-    const batches = inventoryBatches
-      .filter(b => Number(b.masterId || b.master_id) === Number(mId))
-      .sort((a, b) => (a.code || a.variant_code || '').localeCompare(b.code || b.variant_code || ''));
-    const totalStock = batches.reduce((sum, b) => sum + Number(b.stock || 0), 0);
+  const matchingMasters = [];
+  for (let i = 0; i < masterItems.length; i++) {
+    const master = masterItems[i];
+    const batches = batchesByMaster.get(Number(master.id)) || [];
 
     const oem = (master.oem || '').toUpperCase();
     const pName = (master.partName || master.part_name || '').toUpperCase();
     const brand = (master.brand || '').toUpperCase();
     const model = (master.model || '').toUpperCase();
 
-    const matchesMaster = oem.includes(search) || pName.includes(search) || brand.includes(search) || model.includes(search);
-    const matchesBatch = batches.some(b => {
-      const bCode = (b.code || b.variant_code || '').toUpperCase();
-      const bSupp = (b.supplier || '').toUpperCase();
-      return bCode.includes(search) || bSupp.includes(search);
-    });
+    const matchesMaster =
+      search === '' ||
+      oem.includes(search) ||
+      pName.includes(search) ||
+      brand.includes(search) ||
+      model.includes(search);
+
+    const matchesBatch =
+      search !== '' &&
+      batches.some(b => {
+        const bCode = (b.code || b.variant_code || '').toUpperCase();
+        const bSupp = (b.supplier || '').toUpperCase();
+        return bCode.includes(search) || bSupp.includes(search);
+      });
 
     if (matchesMaster || matchesBatch) {
-      const rowCard = document.createElement('div');
-      rowCard.className = 'master-row-card';
-      rowCard.innerHTML = `
-        <div class="master-row-header">
-          <div class="master-row-left" onclick="toggleInventoryBatchPanel('batchPanel_${mIdx}')">
-            <div class="master-row-thumb">${renderCardMedia(master)}</div>
-            <div>
-              <div class="master-row-title">${escapeHtml(master.partName || master.part_name)} - ${escapeHtml(master.oem)}</div>
-              <div class="master-row-sub">${escapeHtml(master.brand)} | VEHICLE : ${escapeHtml(master.make || '')} ${escapeHtml(master.model || '')}${master.engine ? ' (' + escapeHtml(master.engine) + ')' : ''}</div>
-            </div>
-          </div>
-          <div class="master-row-actions">
-            <button class="btn btn-secondary btn-sm" onclick="openQuickCodingModal(${mId})">+ New Variant</button>
-            <div style="text-align:right; cursor:pointer;" onclick="toggleInventoryBatchPanel('batchPanel_${mIdx}')">
-              <span class="stock-badge ${totalStock > 0 ? 'stock-green' : 'stock-red'}">STOCK: ${formatNumber(totalStock)}</span>
-              <div style="font-size:11px; font-weight:700; color:#FF6600; margin-top:4px;">${formatNumber(batches.length)} VARIANT(S) ▼</div>
-            </div>
-          </div>
-        </div>
-        <div id="batchPanel_${mIdx}" class="batch-expand-panel" style="display:none;">
-          <div class="batch-panel-title">ASSOCIATED VARIANT CODINGS & BARCODES</div>
-          <div id="batchGrid_${mIdx}" class="catalog-grid" style="margin-top:12px;"></div>
-        </div>
-      `;
-      container.appendChild(rowCard);
-
-      const batchGrid = rowCard.querySelector(`#batchGrid_${mIdx}`);
-      if (batches.length > 0) {
-        batches.forEach((batch, bIdx) => {
-          const bCard = document.createElement('div');
-          bCard.className = 'item-card';
-          const svgId = `inventorySvg_${mIdx}_${bIdx}`;
-          const bCode = batch.code || batch.variant_code;
-          const badgeHtml = buildStockBadgeHtml(batch, master.unitType || master.unit_type);
-
-          bCard.innerHTML = `
-            <div>
-              <div class="item-title" style="color:#FF6600;">${escapeHtml(bCode)}</div>
-              <div class="item-subtitle" style="margin-bottom:6px;">SUPPLIER: ${escapeHtml(batch.supplier)}</div>
-              <div class="barcode-card-box"><svg id="${svgId}" class="barcode-svg"></svg></div>
-            </div>
-            <div class="card-footer">
-              <div>
-                <div class="item-price">₱${formatCurrency(batch.price || 0)}</div>
-                <div style="font-size:10px; color:#64748b;">COST: ₱${formatCurrency(batch.cost || 0)}</div>
-              </div>
-              <div style="text-align:right;">
-                <div>${badgeHtml}</div>
-                <div style="margin-top:6px; display:flex; gap:4px; justify-content:flex-end;">
-                  <button class="btn btn-primary btn-sm" style="font-size:11px; padding:4px 10px;" onclick="openRestockModal('${escapeHtml(bCode)}')">+ Add Stock</button>
-                </div>
-              </div>
-            </div>
-          `;
-          batchGrid.appendChild(bCard);
-          setTimeout(() => {
-            const svgEl = document.getElementById(svgId);
-            if (svgEl) {
-              JsBarcode(`#${svgId}`, batch.barcode || bCode, { format: 'CODE128', width: 1.4, height: 26, fontSize: 10 });
-            }
-          }, 40);
-        });
-      } else {
-        batchGrid.innerHTML = `<span class="na-text" style="padding:10px;">NO VARIANT CREATED YET.</span>`;
-      }
+      const totalStock = batches.reduce((sum, b) => sum + Number(b.stock || 0), 0);
+      matchingMasters.push({ master, batches, totalStock });
     }
+  }
+
+  matchingMasters.sort((a, b) => {
+    const isOutA = a.totalStock === 0 ? 0 : 1;
+    const isOutB = b.totalStock === 0 ? 0 : 1;
+    if (isOutA !== isOutB) return isOutA - isOutB;
+    const pA = a.master.partName || a.master.part_name || '';
+    const pB = b.master.partName || b.master.part_name || '';
+    return pA.localeCompare(pB);
   });
+
+  const fragment = document.createDocumentFragment();
+
+  matchingMasters.slice(0, 40).forEach(({ master, batches, totalStock }, mIdx) => {
+    const mId = master.id;
+    const rowCard = document.createElement('div');
+    rowCard.className = 'master-row-card';
+    rowCard.innerHTML = `
+      <div class="master-row-header">
+        <div class="master-row-left" onclick="toggleInventoryBatchPanel('batchPanel_${mIdx}', ${mId}, ${mIdx})">
+          <div class="master-row-thumb">${renderCardMedia(master)}</div>
+          <div>
+            <div class="master-row-title">${escapeHtml(master.partName || master.part_name)} - ${escapeHtml(master.oem)}</div>
+            <div class="master-row-sub">${escapeHtml(master.brand)} | VEHICLE : ${escapeHtml(master.make || '')} ${escapeHtml(master.model || '')}${master.engine ? ' (' + escapeHtml(master.engine) + ')' : ''}</div>
+          </div>
+        </div>
+        <div class="master-row-actions">
+          <button class="btn btn-secondary btn-sm" onclick="openQuickCodingModal(${mId})">+ New Variant</button>
+          <div style="text-align:right; cursor:pointer;" onclick="toggleInventoryBatchPanel('batchPanel_${mIdx}', ${mId}, ${mIdx})">
+            <span class="stock-badge ${totalStock > 0 ? 'stock-green' : 'stock-red'}">STOCK: ${formatNumber(totalStock)}</span>
+            <div style="font-size:11px; font-weight:700; color:#FF6600; margin-top:4px;">${formatNumber(batches.length)} VARIANT(S) ▼</div>
+          </div>
+        </div>
+      </div>
+      <div id="batchPanel_${mIdx}" class="batch-expand-panel" style="display:none;" data-loaded="false">
+        <div class="batch-panel-title">ASSOCIATED VARIANT CODINGS & BARCODES</div>
+        <div id="batchGrid_${mIdx}" class="catalog-grid" style="margin-top:12px;"></div>
+      </div>
+    `;
+    fragment.appendChild(rowCard);
+  });
+
+  container.innerHTML = '';
+  container.appendChild(fragment);
 }
 
-function toggleInventoryBatchPanel(panelId) {
+function toggleInventoryBatchPanel(panelId, masterId, mIdx) {
   const panel = document.getElementById(panelId);
-  if (panel) {
-    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  if (!panel) return;
+
+  const isOpening = panel.style.display === 'none';
+  panel.style.display = isOpening ? 'block' : 'none';
+
+  if (isOpening && panel.getAttribute('data-loaded') === 'false') {
+    panel.setAttribute('data-loaded', 'true');
+    const batchGrid = document.getElementById(`batchGrid_${mIdx}`);
+    const master = masterItems.find(m => Number(m.id) === Number(masterId)) || {};
+    const batches = inventoryBatches
+      .filter(b => Number(b.masterId || b.master_id) === Number(masterId))
+      .sort((a, b) => (a.code || a.variant_code || '').localeCompare(b.code || b.variant_code || ''));
+
+    if (!batchGrid) return;
+
+    if (batches.length > 0) {
+      batchGrid.innerHTML = '';
+      batches.forEach((batch, bIdx) => {
+        const bCard = document.createElement('div');
+        bCard.className = 'item-card';
+        const svgId = `inventorySvg_${mIdx}_${bIdx}`;
+        const bCode = batch.code || batch.variant_code;
+        const badgeHtml = buildStockBadgeHtml(batch, master.unitType || master.unit_type);
+
+        bCard.innerHTML = `
+          <div>
+            <div class="item-title" style="color:#FF6600;">${escapeHtml(bCode)}</div>
+            <div class="item-subtitle" style="margin-bottom:6px;">SUPPLIER: ${escapeHtml(batch.supplier)}</div>
+            <div class="barcode-card-box"><svg id="${svgId}" class="barcode-svg"></svg></div>
+          </div>
+          <div class="card-footer">
+            <div>
+              <div class="item-price">₱${formatCurrency(batch.price || 0)}</div>
+              <div style="font-size:10px; color:#64748b;">COST: ₱${formatCurrency(batch.cost || 0)}</div>
+            </div>
+            <div style="text-align:right;">
+              <div>${badgeHtml}</div>
+              <div style="margin-top:6px; display:flex; gap:4px; justify-content:flex-end;">
+                <button class="btn btn-primary btn-sm" style="font-size:11px; padding:4px 10px;" onclick="openRestockModal('${escapeHtml(bCode)}')">+ Add Stock</button>
+              </div>
+            </div>
+          </div>
+        `;
+        batchGrid.appendChild(bCard);
+        if (typeof JsBarcode !== 'undefined') {
+          JsBarcode(`#${svgId}`, batch.barcode || bCode, { format: 'CODE128', width: 1.4, height: 26, fontSize: 10 });
+        }
+      });
+    } else {
+      batchGrid.innerHTML = `<span class="na-text" style="padding:10px;">NO VARIANT CREATED YET.</span>`;
+    }
   }
 }
 
@@ -2221,10 +2303,10 @@ async function handleRegisterUserSubmit(event) {
   }
 
   try {
-    const response = await apiRequest('/users', 'POST', { fullName, username, password, role });
+    await apiRequest('/users', 'POST', { fullName, username, password, role });
     showToast('✅ Successfully Saved! Bagong system user account ay nairehistro na.', 'success');
     document.getElementById('userRegForm').reset();
-    await loadProductionDataFromBackend();
+    await loadProductionDataFromBackend({ skipMasters: true, skipSuppliers: true });
     renderUsersTable();
   } catch (err) {
     showToast(`❌ Nabigong magrehistro ng user: ${err.message}`, 'error');
@@ -2235,7 +2317,7 @@ async function deleteSystemUser(userId) {
   if (confirm('Sigurado ka bang gusto mong burahin ang account na ito?')) {
     try {
       await apiRequest(`/users/${userId}`, 'DELETE');
-      await loadProductionDataFromBackend();
+      await loadProductionDataFromBackend({ skipMasters: true, skipSuppliers: true });
       renderUsersTable();
       showToast('✅ Matagumpay na nabura ang user account.', 'success');
     } catch (err) {
@@ -2252,24 +2334,18 @@ document.addEventListener('DOMContentLoaded', () => {
   if (dateFilter) dateFilter.value = getTodayString();
   restoreSessionOnReload();
 
-  const saleSearchInputEl = document.getElementById('saleSearchInput');
+    const saleSearchInputEl = document.getElementById('saleSearchInput');
   if (saleSearchInputEl) {
-    saleSearchInputEl.addEventListener('input', debounce(() => {
-      renderSaleGrid();
-    }, 300));
+    saleSearchInputEl.addEventListener('input', renderSaleGrid);
   }
 
   const inventorySearchInputEl = document.getElementById('inventorySearch');
   if (inventorySearchInputEl) {
-    inventorySearchInputEl.addEventListener('input', debounce(() => {
-      renderInventoryGrid();
-    }, 300));
+    inventorySearchInputEl.addEventListener('input', renderInventoryGrid);
   }
 
   const step1SearchInputEl = document.getElementById('step1Search');
   if (step1SearchInputEl) {
-    step1SearchInputEl.addEventListener('input', debounce(() => {
-      renderStep1Grid();
-    }, 300));
+    step1SearchInputEl.addEventListener('input', renderStep1Grid);
   }
 });
