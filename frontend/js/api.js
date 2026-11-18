@@ -23,14 +23,43 @@ function hideLoading() {
   }
 }
 
+// Helper: Sinisiguro kung expired na ang JWT token sa browser bago pa tumawag sa server
+function isJwtExpired(token) {
+  if (!token) return true;
+  try {
+    const payloadBase64 = token.split('.')[1];
+    if (!payloadBase64) return false;
+    const decodedJson = JSON.parse(atob(payloadBase64.replace(/-/g, '+').replace(/_/g, '/')));
+    if (!decodedJson.exp) return false;
+    const nowInSeconds = Math.floor(Date.now() / 1000);
+    return decodedJson.exp < nowInSeconds;
+  } catch (e) {
+    return false;
+  }
+}
+
+function forceSessionLogout() {
+  localStorage.removeItem('pos_user');
+  localStorage.removeItem('pos_token');
+  localStorage.removeItem('pos_active_view');
+  location.reload();
+}
+
 async function apiRequest(url, method = 'GET', bodyData = null) {
   showLoading();
   try {
-    // Awtomatikong idikit ang CONFIG.API_BASE_URL mula sa config.js kung relative path ito
     const base = typeof CONFIG !== 'undefined' && CONFIG.API_BASE_URL ? CONFIG.API_BASE_URL : 'http://localhost:5000/api';
     const fullUrl = url.startsWith('http') ? url : `${base}${url.startsWith('/') ? '' : '/'}${url}`;
 
     const token = localStorage.getItem('pos_token');
+    const isAuthRoute = url.includes('/auth/login');
+
+    // 1. Kung hindi login route at expired na ang JWT token, i-logout na agad!
+    if (!isAuthRoute && token && isJwtExpired(token)) {
+      forceSessionLogout();
+      throw new Error('Session expired. Please log in again.');
+    }
+
     const headers = {
       'Content-Type': 'application/json'
     };
@@ -49,11 +78,9 @@ async function apiRequest(url, method = 'GET', bodyData = null) {
 
     const response = await fetch(fullUrl, config);
     
-    // Kung unauthorized, i-redirect sa login
-    if (response.status === 401) {
-      localStorage.removeItem('pos_user');
-      localStorage.removeItem('pos_token');
-      location.reload();
+    // 2. Kung 401 o 403 (Invalid/Expired Token mula sa backend) at hindi login attempt
+    if (!isAuthRoute && (response.status === 401 || response.status === 403)) {
+      forceSessionLogout();
       throw new Error('Session expired. Please log in again.');
     }
 

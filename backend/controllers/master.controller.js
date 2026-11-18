@@ -1,11 +1,11 @@
 const db = require('../config/db');
 
-// Kunin ang lahat ng Master Items kasama ang unang larawan (thumbnail) lamang para mabilis mag-load
+// 1. Kunin ang lahat ng Master Items kasama ang unang larawan (thumbnail) lamang
 exports.getAllMasters = async (req, res) => {
   try {
     const query = `
       SELECT id, oem, brand, part_name, make, model, year, engine, 
-             unit_type, pcs_per_box, size_per_pc, position, origin, description, 
+             unit_type, position, origin, description, 
              images[1:1] AS images, created_at 
       FROM master_items 
       ORDER BY part_name ASC;
@@ -18,7 +18,7 @@ exports.getAllMasters = async (req, res) => {
   }
 };
 
-// 2. Kunin ang larawan ng isang partikular na item on-demand (Kapag binuksan ang modal/detalye)
+// 2. Kunin ang larawan ng isang partikular na item on-demand
 exports.getMasterImage = async (req, res) => {
   try {
     const { id } = req.params;
@@ -36,7 +36,7 @@ exports.getMasterImage = async (req, res) => {
   }
 };
 
-// 3. Mag-save ng Bagong Master Item sa Database
+// 3. Mag-save ng Bagong Master Item sa Database (Walang pcs_per_box at size_per_pc)
 exports.createMaster = async (req, res) => {
   try {
     const {
@@ -48,8 +48,6 @@ exports.createMaster = async (req, res) => {
       year,
       engine,
       unit_type,
-      pcs_per_box,
-      size_per_pc,
       position,
       origin,
       description,
@@ -66,8 +64,8 @@ exports.createMaster = async (req, res) => {
     const query = `
       INSERT INTO master_items (
         oem, brand, part_name, make, model, year, engine, 
-        unit_type, pcs_per_box, size_per_pc, position, origin, description, images
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        unit_type, position, origin, description, images
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
       RETURNING *;
     `;
 
@@ -80,8 +78,6 @@ exports.createMaster = async (req, res) => {
       year ? year.toUpperCase() : '',
       engine ? engine.toUpperCase() : '',
       unit_type || 'pc',
-      pcs_per_box || null,
-      size_per_pc ? size_per_pc.toUpperCase() : '',
       position ? position.toUpperCase() : '',
       origin ? origin.toUpperCase() : '',
       description ? description.toUpperCase() : '',

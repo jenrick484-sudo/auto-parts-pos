@@ -119,16 +119,15 @@ function formatValueOrNA(val) {
 }
 
 function formatPackagingText(item) {
-  const uType = item.unitType || item.unit_type;
-  if (uType === 'box') {
-    const pcs = (item.pcsPerBox || item.pcs_per_box) ? `${formatNumber(item.pcsPerBox || item.pcs_per_box)} PCS` : 'N/A PCS';
-    const sz = (item.sizePerPc || item.size_per_pc) ? (item.sizePerPc || item.size_per_pc).toUpperCase() : 'N/A SIZE';
-    return `BOX (${pcs} X ${sz})`;
-  } else if (uType === 'set') {
+  const uType = (item.unitType || item.unit_type || '').toLowerCase();
+  if (uType === 'set') {
     return 'SET';
+  } else if (uType === 'box') {
+    return 'BOX';
   }
   return '1 PC (PIECE)';
 }
+
 
 function refreshLucideIcons() {
   if (typeof lucide !== 'undefined' && typeof lucide.createIcons === 'function') {
@@ -1585,23 +1584,114 @@ function renderCardMedia(item) {
   return item.icon || '⚙️';
 }
 
+let activeMasterPartGroup = null;
+
 function renderStep1Grid() {
   const grid = document.getElementById('step1Grid');
   const searchInput = document.getElementById('step1Search');
   if (!grid) return;
 
-  const search = searchInput ? searchInput.value.toUpperCase() : '';
+  const search = searchInput ? searchInput.value.trim().toUpperCase() : '';
   grid.innerHTML = '';
 
-  const filtered = masterItems.filter(item => {
-    const oem = (item.oem || '').toUpperCase();
-    const pName = (item.partName || item.part_name || '').toUpperCase();
-    const brand = (item.brand || '').toUpperCase();
-    const model = (item.model || '').toUpperCase();
-    return oem.includes(search) || pName.includes(search) || brand.includes(search) || model.includes(search);
+  // 1. Kung may tini-type sa Search Bar, ipakita agad ang matching items para mabilis mahanap
+  if (search !== '') {
+    activeMasterPartGroup = null;
+    const filtered = masterItems.filter(item => {
+      const oem = (item.oem || '').toUpperCase();
+      const pName = (item.partName || item.part_name || '').toUpperCase();
+      const brand = (item.brand || '').toUpperCase();
+      const model = (item.model || '').toUpperCase();
+      return oem.includes(search) || pName.includes(search) || brand.includes(search) || model.includes(search);
+    });
+
+    if (filtered.length === 0) {
+      grid.innerHTML = `<div class="card empty-placeholder-card" style="grid-column: 1 / -1;"><h3>NO MATCHING ITEMS FOUND</h3></div>`;
+      return;
+    }
+
+    renderMasterItemCardsList(grid, filtered);
+    return;
+  }
+
+  // 2. Kung may piniling Part Name Group (hal. BRAKE PAD), ipakita ang Back button + lahat ng items sa ilalim nito
+  if (activeMasterPartGroup) {
+    const groupItems = masterItems.filter(item => {
+      const pName = toUpper(item.partName || item.part_name || 'UNCATEGORIZED');
+      return pName === activeMasterPartGroup;
+    });
+
+    const headerBar = document.createElement('div');
+    headerBar.style.cssText = 'grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; background: #FFF7ED; border: 1px solid #FDBA74; padding: 12px 16px; border-radius: 8px; margin-bottom: 4px;';
+    headerBar.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="closePartNameGroup()">⬅ Back to Categories</button>
+        <div>
+          <div style="font-size: 15px; font-weight: 800; color: #1A1A1A;">${escapeHtml(activeMasterPartGroup)}</div>
+          <div style="font-size: 12px; color: #64748B;">Showing ${formatNumber(groupItems.length)} master item(s) under this category</div>
+        </div>
+      </div>
+    `;
+    grid.appendChild(headerBar);
+
+    renderMasterItemCardsList(grid, groupItems);
+    return;
+  }
+
+  // 3. Default View: I-group ang lahat ng Master Items ayon sa Part Name (Alphabetical ASC)
+  const groupedMap = new Map();
+  masterItems.forEach(item => {
+    const pName = toUpper(item.partName || item.part_name || 'UNCATEGORIZED');
+    if (!groupedMap.has(pName)) {
+      groupedMap.set(pName, []);
+    }
+    groupedMap.get(pName).push(item);
   });
 
-  filtered.forEach(item => {
+  // I-sort ang Part Names nang Alphabetical (A - Z)
+  const sortedPartNames = Array.from(groupedMap.keys()).sort((a, b) => a.localeCompare(b));
+
+  if (sortedPartNames.length === 0) {
+    grid.innerHTML = `<div class="card empty-placeholder-card" style="grid-column: 1 / -1;"><h3>NO MASTER ITEMS REGISTERED YET</h3></div>`;
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+
+  sortedPartNames.forEach(partName => {
+    const itemsInGroup = groupedMap.get(partName);
+    const sampleWithImg = itemsInGroup.find(i => (i.images || i.image_urls || []).length > 0) || itemsInGroup[0];
+
+    const folderCard = document.createElement('div');
+    folderCard.className = 'item-card';
+    folderCard.style.cursor = 'pointer';
+    folderCard.onclick = () => openPartNameGroup(partName);
+
+    folderCard.innerHTML = `
+      <div>
+        <div class="card-img-placeholder" style="position: relative;">
+          ${renderCardMedia(sampleWithImg)}
+          <span class="photo-count-badge" style="background: #FF6600; color: #FFF; font-weight: 800;">
+            ${formatNumber(itemsInGroup.length)} ITEM(S)
+          </span>
+        </div>
+        <div class="item-title" style="font-size: 15px; color: #1A1A1A; margin-top: 6px;">${escapeHtml(partName)}</div>
+        <div class="item-subtitle" style="color: #FF6600; font-weight: 700; margin-top: 4px;">
+          ${formatNumber(itemsInGroup.length)} ${escapeHtml(partName)} ➔
+        </div>
+      </div>
+    `;
+    fragment.appendChild(folderCard);
+  });
+
+  grid.appendChild(fragment);
+}
+
+// Helper para i-render ang individual Master Item cards kapag binuksan ang grupo o nag-search
+function renderMasterItemCardsList(container, itemsList) {
+  const fragment = document.createDocumentFragment();
+
+  itemsList.forEach(item => {
     const originalIndex = masterItems.findIndex(m => m.id === item.id);
     const card = document.createElement('div');
     card.className = 'item-card';
@@ -1612,13 +1702,26 @@ function renderStep1Grid() {
       <div>
         <div class="card-img-placeholder">${renderCardMedia(item)}</div>
         <div class="item-title">${escapeHtml(pName)} - ${escapeHtml(item.oem)}</div>
-        <div class="item-oem">${escapeHtml(item.brand)} | VEHICLE : ${escapeHtml(item.make || '')} ${escapeHtml(item.model || '')}${item.engine ? ' (' + escapeHtml(item.engine) + ')' : ''}</div>
+        <div class="item-oem">${escapeHtml(item.brand)} | VEHICLE : ${escapeHtml(item.make || '')} ${escapeHtml(item.model || '')}</div>
         <div class="item-subtitle">${escapeHtml(item.engine ? '(' + item.engine + ')' : '')}</div>
       </div>
     `;
-    grid.appendChild(card);
+    fragment.appendChild(card);
   });
+
+  container.appendChild(fragment);
 }
+
+function openPartNameGroup(partName) {
+  activeMasterPartGroup = partName;
+  renderStep1Grid();
+}
+
+function closePartNameGroup() {
+  activeMasterPartGroup = null;
+  renderStep1Grid();
+}
+
 
 document.getElementById('masterForm')?.addEventListener('submit', async function(e) {
   e.preventDefault();
@@ -1635,8 +1738,6 @@ document.getElementById('masterForm')?.addEventListener('submit', async function
     year: toUpper(document.getElementById('yearInput').value),
     engine: toUpper(document.getElementById('engineInput').value),
     unit_type: unitType,
-    pcs_per_box: unitType === 'box' ? document.getElementById('pcsPerBoxInput').value : '',
-    size_per_pc: unitType === 'box' ? toUpper(document.getElementById('sizePerPcInput').value) : '',
     position: toUpper(document.getElementById('positionInput').value),
     origin: toUpper(document.getElementById('originInput').value),
     description: toUpper(document.getElementById('descInput').value),
