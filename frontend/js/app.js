@@ -196,7 +196,12 @@ let lastScanTime = 0;
 
 async function loadProductionDataFromBackend(options = {}) {
   try {
-    const { skipMasters = false, skipUsers = false, skipSuppliers = false } = options;
+    const role = loggedInUser?.role || '';
+    const {
+      skipMasters = false,
+      skipUsers = role !== 'ADMIN',
+      skipSuppliers = role === 'CASHIER'
+    } = options;
 
     const [mastersRes, variantsRes, salesRes, usersRes, suppliersRes] = await Promise.all([
       skipMasters ? Promise.resolve(null) : apiRequest('/masters', 'GET').catch(() => []),
@@ -1628,7 +1633,7 @@ function renderStep1Grid() {
         <button type="button" class="btn btn-secondary btn-sm" onclick="closePartNameGroup()">⬅ Back to Categories</button>
         <div>
           <div style="font-size: 15px; font-weight: 800; color: #1A1A1A;">${escapeHtml(activeMasterPartGroup)}</div>
-          <div style="font-size: 12px; color: #64748B;">Showing ${formatNumber(groupItems.length)} master item(s) under this category</div>
+          <div style="font-size: 12px; color: #64748B;">Showing ${formatNumber(groupItems.length)} master item under this category</div>
         </div>
       </div>
     `;
@@ -1672,12 +1677,12 @@ function renderStep1Grid() {
         <div class="card-img-placeholder" style="position: relative;">
           ${renderCardMedia(sampleWithImg)}
           <span class="photo-count-badge" style="background: #FF6600; color: #FFF; font-weight: 800;">
-            ${formatNumber(itemsInGroup.length)} ITEM(S)
+            ${formatNumber(itemsInGroup.length)} ITEMS  
           </span>
         </div>
         <div class="item-title" style="font-size: 15px; color: #1A1A1A; margin-top: 6px;">${escapeHtml(partName)}</div>
         <div class="item-subtitle" style="color: #FF6600; font-weight: 700; margin-top: 4px;">
-          ${formatNumber(itemsInGroup.length)} ${escapeHtml(partName)} ➔
+          ${formatNumber(itemsInGroup.length)} available items➔
         </div>
       </div>
     `;

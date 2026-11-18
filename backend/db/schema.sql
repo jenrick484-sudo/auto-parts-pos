@@ -22,8 +22,6 @@ CREATE TABLE IF NOT EXISTS master_items (
     year VARCHAR(50),
     engine VARCHAR(100),
     unit_type VARCHAR(20) DEFAULT 'pc' CHECK (unit_type IN ('pc', 'set', 'box')),
-    pcs_per_box INT,
-    size_per_pc VARCHAR(50),
     position VARCHAR(100),
     origin VARCHAR(100),
     description TEXT,

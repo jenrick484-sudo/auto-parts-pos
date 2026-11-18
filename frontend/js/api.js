@@ -78,8 +78,8 @@ async function apiRequest(url, method = 'GET', bodyData = null) {
 
     const response = await fetch(fullUrl, config);
     
-    // 2. Kung 401 o 403 (Invalid/Expired Token mula sa backend) at hindi login attempt
-    if (!isAuthRoute && (response.status === 401 || response.status === 403)) {
+    // 2. Kung 401 (Invalid/Expired Token mula sa backend) at hindi login attempt
+    if (!isAuthRoute && response.status === 401) {
       forceSessionLogout();
       throw new Error('Session expired. Please log in again.');
     }
