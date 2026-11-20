@@ -224,19 +224,7 @@ export default function PosCheckoutPage() {
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="SEARCH PART NAME, OEM, BRAND..."
-                  className="w-full h-10 pl-10 pr-4 border border-zinc-300 rounded-xl text-xs uppercase focus:outline-none focus:border-[#FF6600]"
-                />
-              </div>
-
-              <div className="relative">
-                <Barcode className="w-4 h-4 text-[#FF6600] absolute left-3.5 top-3" />
-                <input
-                  type="text"
-                  value={barcodeInput}
-                  onChange={(e) => setBarcodeInput(e.target.value)}
-                  onKeyDown={handleBarcodeKey}
-                  placeholder="SCAN BARCODE OR TYPE CODE + ENTER..."
-                  className="w-full h-10 pl-10 pr-4 border border-[#FF6600]/50 bg-[#FFF7ED]/50 rounded-xl text-xs font-mono uppercase focus:outline-none focus:border-[#FF6600]"
+                  className="w-full h-10 pl-10 pr-4 border border-zinc-500 rounded-xl text-xs uppercase focus:outline-none focus:border-[#FF6600]"
                 />
               </div>
             </div>

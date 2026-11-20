@@ -6,7 +6,7 @@ export const API_BASE_URL =
 function isJwtExpired(token) {
   if (!token) return true;
   try {
-    const payloadBase64 = token.split('.');
+    const payloadBase64 = token.split('.')[1];
     if (!payloadBase64) return false;
     const decodedJson = JSON.parse(atob(payloadBase64.replace(/-/g, '+').replace(/_/g, '/')));
     if (!decodedJson.exp) return false;
@@ -27,6 +27,7 @@ export async function apiRequest(url, method = 'GET', bodyData = null) {
   const token = localStorage.getItem('pos_token');
   const isAuthRoute = url.includes('/auth/login');
 
+  // 1. Pre-check: Kung expired na ang token bago pa tumawag sa server
   if (!isAuthRoute && token && isJwtExpired(token)) {
     forceSessionLogout();
     throw new Error('Session expired. Please log in again.');
@@ -44,7 +45,9 @@ export async function apiRequest(url, method = 'GET', bodyData = null) {
 
   const response = await fetch(fullUrl, config);
 
-  if (!isAuthRoute && response.status === 401) {
+  // 2. Kung 401 o 403 (Invalid/Expired token) sa main data routes, auto-logout
+  const isRoleRestrictedRoute = url.includes('/users') || url.includes('/suppliers');
+  if (!isAuthRoute && !isRoleRestrictedRoute && (response.status === 401 || response.status === 403)) {
     forceSessionLogout();
     throw new Error('Session expired. Please log in again.');
   }

@@ -137,72 +137,89 @@ export default function MasterItemsPage() {
   }
 
   return (
-    <div className="space-y-5">
-      {/* Sub-Tabs Header */}
-      <div className="flex flex-wrap justify-between items-center gap-3 bg-white p-4 rounded-2xl border border-zinc-300 shadow-xs">
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => setActiveTab('catalog')}
-            className={`px-4 py-2 rounded-xl text-xs font-extrabold transition cursor-pointer ${
-              activeTab === 'catalog'
-                ? 'bg-[#1A1A1A] text-white'
-                : 'bg-zinc-100 text-zinc-700 hover:border-[#FF6600]'
-            }`}
-          >
-            📁 Registered Master Items ({masterItems.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('register')}
-            className={`px-4 py-2 rounded-xl text-xs font-extrabold flex items-center gap-1.5 transition cursor-pointer ${
-              activeTab === 'register'
-                ? 'bg-[#FF6600] text-white'
-                : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
-            }`}
-          >
-            <PlusCircle className="w-4 h-4" />
-            <span>Add Master Item</span>
-          </button>
-        </div>
-      </div>
-
-      {/* TAB 1: CATALOG (GROUPED BY PART NAME) */}
-      {activeTab === 'catalog' && (
-        <div className="space-y-4">
-          <div className="relative bg-white p-3 rounded-2xl border border-zinc-300 shadow-xs">
-            <Search className="w-4 h-4 text-zinc-400 absolute left-6 top-5.5" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                if (e.target.value) setSelectedGroup(null);
-              }}
-              placeholder="Search Part Name, OEM, Brand, or Vehicle Model..."
-              className="w-full border border-zinc-300 rounded-xl pl-9 pr-4 py-2 text-sm uppercase focus:outline-none focus:border-[#FF6600]"
-            />
+    <div className="space-y-4">
+      {/* SINGLE COMPACT UNIFIED TOOLBAR */}
+      <div className="bg-white rounded-xl border border-zinc-300 shadow-2xs overflow-hidden">
+        {/* ROW 1: Main Tabs + Inline Search */}
+        <div className="px-3.5 py-2.5 flex flex-col md:flex-row md:items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => setActiveTab('catalog')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-extrabold transition cursor-pointer ${
+                activeTab === 'catalog'
+                  ? 'bg-[#1A1A1A] text-white'
+                  : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
+              }`}
+            >
+              📁 Registered Master Items ({masterItems.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab('register')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-extrabold flex items-center gap-1.5 transition cursor-pointer ${
+                activeTab === 'register'
+                  ? 'bg-[#FF6600] text-white'
+                  : 'bg-zinc-100 text-zinc-700 hover:bg-zinc-200'
+              }`}
+            >
+              <PlusCircle className="w-3.5 h-3.5" />
+              <span>Add Master Item</span>
+            </button>
           </div>
 
-          {!search.trim() && selectedGroup && (
-            <div className="bg-[#FFF7ED] border border-[#FF6600]/40 p-4 rounded-2xl flex items-center justify-between">
-              <div className="flex items-center gap-3">
+          {activeTab === 'catalog' && (
+            <div className="relative flex-1 md:max-w-md">
+              <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  if (e.target.value) setSelectedGroup(null);
+                }}
+                placeholder="Search Part Name, OEM, Brand, or Model..."
+                className="w-full h-8.5 bg-zinc-50 border border-zinc-300 rounded-lg pl-8 pr-7 text-xs uppercase focus:bg-white focus:outline-none focus:border-[#FF6600]"
+              />
+              {search && (
                 <button
                   type="button"
-                  onClick={() => setSelectedGroup(null)}
-                  className="bg-white border border-zinc-300 hover:bg-zinc-50 text-zinc-800 text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1.5 cursor-pointer"
+                  onClick={() => setSearch('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 cursor-pointer"
                 >
-                  <ArrowLeft className="w-4 h-4" />
-                  <span>Back to Categories</span>
+                  <X className="w-3.5 h-3.5" />
                 </button>
-                <div>
-                  <h2 className="font-black text-sm text-zinc-900">{selectedGroup}</h2>
-                  <p className="text-xs text-zinc-500">{displayedItems.length} item(s) under this category</p>
-                </div>
-              </div>
+              )}
             </div>
           )}
+        </div>
 
+        {/* ROW 2: Compact Category Breadcrumb Strip */}
+        {activeTab === 'catalog' && !search.trim() && selectedGroup && (
+          <div className="bg-[#FFF7ED] border-t border-orange-200 px-3.5 py-2 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <button
+                type="button"
+                onClick={() => setSelectedGroup(null)}
+                className="bg-white border border-zinc-300 hover:border-[#FF6600] text-zinc-800 text-[11px] font-bold px-2.5 py-1 rounded-md flex items-center gap-1 shrink-0 cursor-pointer"
+              >
+                <ArrowLeft className="w-3 h-3" />
+                <span>Back</span>
+              </button>
+              <div className="flex items-center gap-2 truncate">
+                <span className="font-black text-xs text-zinc-900 truncate">{selectedGroup}</span>
+                <span className="text-[11px] font-semibold text-zinc-500 shrink-0">
+                  - {displayedItems.length} item(s)
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* TAB 1: CATALOG GRID */}
+      {activeTab === 'catalog' && (
+        <div>
           {!search.trim() && !selectedGroup ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {groupedCategories.map(([partName, items]) => {
@@ -278,7 +295,7 @@ export default function MasterItemsPage() {
         </div>
       )}
 
-      {/* TAB 2: REGISTER NEW MASTER ITEM CATALOG (4-Section Form) */}
+      {/* TAB 2: REGISTER NEW MASTER ITEM CATALOG */}
       {activeTab === 'register' && (
         <form
           onSubmit={handleRegisterSubmit}
@@ -400,6 +417,7 @@ export default function MasterItemsPage() {
                 >
                   <option value="pc">1 PC (PIECE)</option>
                   <option value="set">SET</option>
+                  <option value="box">BOX</option>
                 </select>
               </div>
 
@@ -437,7 +455,7 @@ export default function MasterItemsPage() {
             </div>
           </div>
 
-          {/* 4. Item Gallery Upload (Gallery + Direct Camera Capture) */}
+          {/* 4. Item Gallery Upload */}
           <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-4 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="font-extrabold text-xs uppercase text-zinc-800 tracking-wide">
@@ -484,7 +502,10 @@ export default function MasterItemsPage() {
             ) : (
               <div className="flex flex-wrap gap-3 pt-1">
                 {uploadedUrls.map((url, idx) => (
-                  <div key={url} className="relative w-20 h-20 rounded-xl overflow-hidden border border-zinc-300 bg-white">
+                  <div
+                    key={`${url}-${idx}`}
+                    className="relative w-20 h-20 rounded-xl overflow-hidden border border-zinc-300 bg-white"
+                  >
                     <img src={url} alt={`Upload ${idx + 1}`} className="w-full h-full object-cover" />
                     <button
                       type="button"
