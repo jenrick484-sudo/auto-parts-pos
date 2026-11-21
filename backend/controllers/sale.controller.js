@@ -108,7 +108,8 @@ exports.createSale = async (req, res, next) => {
     const cash = parseFloat(cash_tendered) || grandTotal;
     const change = parseFloat(change_amount) || 0;
     const cashierId = req.user?.id || (user_id ? parseInt(user_id, 10) : null);
-    const txnNumber = 'TXN-' + Date.now();
+    const isCharge = req.body.is_charge === true;
+    const txnNumber = (isCharge ? 'UTANG-' : 'TXN-') + Date.now();
 
     // 1. I-insert sa sales_transactions kasama ang payment_method
     const txnResult = await client.query(
@@ -185,6 +186,8 @@ exports.createSale = async (req, res, next) => {
 
 // GET /api/sales - Kukunin ang transactions kasama ang paymentMethod sa Philippine Time
 // GET /api/sales - Kukunin ang transactions sa Philippine Time
+// Hanapin ang getSales function at idagdag ang WHERE clause:
+
 exports.getSales = async (req, res, next) => {
   try {
     const queryText = `
@@ -219,6 +222,7 @@ exports.getSales = async (req, res, next) => {
       FROM sales_transactions st
       LEFT JOIN users u ON st.user_id = u.id
       LEFT JOIN sales_items si ON st.id = si.transaction_id
+      WHERE st.txn_number NOT LIKE 'UTANG-%'  /* <--- IDINAGDAG ITO */
       GROUP BY st.id, u.full_name
       ORDER BY st.created_at DESC;
     `;
